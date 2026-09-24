@@ -13,15 +13,11 @@ EV_Battery_project/
 ├── README.md
 ├── requirements.txt
 ├── ev battery_failure  Dataset.csv       # Raw Telemetry Dataset
-├── EV_Battery_PHM_Phase1_Master.ipynb    # Unified Master Notebook (for Viva submission)
-├── stage1_2_exploratory_analysis.py      # Automated EDA script
-├── stage4_pipeline_and_splits.py         # Pipeline & data split script (Person D)
-├── eda_plots/                            # Exported charts & visualizations
-└── notebooks/                            # Modular topic notebooks (Zero Merge Conflicts)
-    ├── 01_data_audit_personA.ipynb       # Person A's workspace
-    ├── 02_distributions_outliers_personB.ipynb  # Person B's workspace
-    ├── 03_relationships_features_personC.ipynb  # Person C's workspace
-    └── 04_pipeline_split_personD.ipynb   # Person D's workspace
+└── notebooks/                            # Starter Skeleton Notebooks (For Teammates)
+    ├── 01_data_audit_personA.ipynb       # Person A's assigned workspace (# TODO tasks)
+    ├── 02_distributions_outliers_personB.ipynb  # Person B's assigned workspace (# TODO tasks)
+    ├── 03_relationships_features_personC.ipynb  # Person C's assigned workspace (# TODO tasks)
+    └── 04_pipeline_split_personD.ipynb   # Person D's assigned workspace (# TODO tasks)
 ```
 
 ---

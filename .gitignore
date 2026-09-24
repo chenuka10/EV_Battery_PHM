@@ -4,6 +4,10 @@ venv/
 env/
 ENV/
 
+# Reference solutions (keep local for group lead only)
+reference_solutions/
+.reference/
+
 # Python cache & build
 __pycache__/
 *.py[cod]
