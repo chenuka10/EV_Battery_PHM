@@ -24,7 +24,7 @@ def compact(s: str) -> str:
 
 
 # ==============================================================================
-# Design System: White + Electric Blue + Battery Green
+# Design System: Clean White + Electric Blue + Battery Green
 # ==============================================================================
 THEME_CSS = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
@@ -76,7 +76,7 @@ html, body, .stApp, .stApp p, .stApp label, .stApp li, .stApp h1, .stApp h2, .st
 .block-container {
     padding-top: 1.8rem;
     padding-bottom: 3.5rem;
-    max-width: 1380px;
+    max-width: 1400px;
 }
 
 /* ---------- Header ---------- */
@@ -97,19 +97,42 @@ html, body, .stApp, .stApp p, .stApp label, .stApp li, .stApp h1, .stApp h2, .st
 }
 
 .sub-header {
-    font-size: 1rem;
+    font-size: 0.98rem;
     color: var(--muted);
-    margin: 0.5rem 0 1.2rem 0;
+    margin: 0.45rem 0 1.1rem 0;
     line-height: 1.55;
-    max-width: 65rem;
+    max-width: 68rem;
 }
 
 .hdr-rule {
     height: 2px;
     background: linear-gradient(90deg, var(--blue) 0%, var(--green) 35%, var(--border) 100%);
     position: relative;
-    margin-bottom: 1.8rem;
+    margin-bottom: 1.5rem;
     border-radius: 2px;
+}
+
+/* ---------- How to use bar ---------- */
+.how-to-use {
+    background: #FFFFFF;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    margin-bottom: 1.4rem;
+    display: flex;
+    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.03);
+}
+
+.how-step {
+    font-size: 0.8rem;
+    color: var(--navy);
+}
+
+.how-step b {
+    color: var(--blue);
 }
 
 /* ---------- Sidebar ---------- */
@@ -342,6 +365,15 @@ html, body, .stApp, .stApp p, .stApp label, .stApp li, .stApp h1, .stApp h2, .st
     border-color: var(--blue);
 }
 
+/* Containers styled */
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: #FFFFFF !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03) !important;
+    padding: 0.4rem !important;
+}
+
 /* ---------- Metric Overview Cards ---------- */
 .metric-card {
     background: var(--card);
@@ -551,7 +583,7 @@ html, body, .stApp, .stApp p, .stApp label, .stApp li, .stApp h1, .stApp h2, .st
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 215px;
+    min-height: 220px;
     box-shadow: 0 1px 3px rgba(15,23,42,0.03);
     transition: all 0.2s ease;
     position: relative;
@@ -627,16 +659,6 @@ html, body, .stApp, .stApp p, .stApp label, .stApp li, .stApp h1, .stApp h2, .st
 }
 
 /* ---------- Feature Studio Panel ---------- */
-.studio-card {
-    background: #FFFFFF;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.4rem 1.4rem 1.2rem 1.4rem;
-    box-shadow: 0 2px 4px rgba(15,23,42,0.03);
-    margin-bottom: 1.5rem;
-    height: 100%;
-}
-
 .studio-head {
     display: flex;
     align-items: center;
@@ -1036,7 +1058,7 @@ table.data-tbl tbody tr.champ td:first-child {
 
 /* Footer */
 .app-footer {
-    margin-top: 3rem;
+    margin-top: 3.5rem;
     padding-top: 1.2rem;
     border-top: 1px solid var(--border);
     font-size: 0.76rem;
@@ -1117,13 +1139,13 @@ def render_table(df: pd.DataFrame, num_cols=(), decimals=None, model_col="Model"
     )
     rows = []
     for _, row in df.iterrows():
-        is_champ = status_col in df.columns and "Champion" in str(row[status_col])
+        is_champ = status_col and status_col in df.columns and "Champion" in str(row[status_col])
         cells = []
         for c in df.columns:
             v = row[c]
             if c == model_col:
                 cells.append(f'<td class="mdl">{_html.escape(str(v))}</td>')
-            elif c == status_col:
+            elif status_col and c == status_col:
                 cls = "chip champ" if is_champ else "chip"
                 cells.append(f'<td><span class="{cls}">{_html.escape(str(v))}</span></td>')
             elif c in num_cols:
@@ -1139,7 +1161,7 @@ def render_table(df: pd.DataFrame, num_cols=(), decimals=None, model_col="Model"
 
 
 # ==============================================================================
-# Model & Metadata Loading (Cached)
+# Model Loading, Feature Engineering Helper & State Manager
 # ==============================================================================
 @st.cache_resource
 def load_artifacts():
@@ -1151,77 +1173,93 @@ def load_artifacts():
         meta = json.load(f)
     with open('models/preset_scenarios.json', 'r') as f:
         scenarios = json.load(f)
-    return ct, hgb, lr, xgb, meta, scenarios
+    with open('models/feature_ranges.json', 'r') as f:
+        ranges = json.load(f)
+    test_scores = pd.read_csv('models/test_scores.csv')
+    return ct, hgb, lr, xgb, meta, scenarios, ranges, test_scores
 
 
 try:
-    ct, model_rul, model_lr, model_xgb, meta, scenarios = load_artifacts()
+    ct, model_rul, model_lr, model_xgb, meta, scenarios, feature_ranges, test_scores_df = load_artifacts()
 except Exception as e:
-    st.error(f"Error loading model artifacts: {e}")
+    st.error(f"Error loading system artifacts: {e}")
     st.stop()
 
 
+def featurize(df_raw: pd.DataFrame) -> pd.DataFrame:
+    """Calculate the 7 verified domain engineering features with epsilon protection."""
+    df = df_raw.copy()
+    df['temperature_spread'] = df['cell_temperature_max'] - df['cell_temperature_avg']
+    df['efficiency_gap'] = (df['charge_efficiency'] - df['discharge_efficiency']).abs()
+    df['health_loss_interaction'] = (df['battery_health_percent'] * df['capacity_loss_percent']) / 100.0
+    df['resistance_per_1000_cycles'] = (df['internal_resistance'] / (df['cycle_count'] + 1.0)) * 1000.0
+    df['c_rate_proxy'] = df['average_charge_power_kw'] / (df['battery_capacity_kwh'] + 1e-5)
+    df['cell_voltage_spread'] = df['cell_voltage_std'] / (df['cell_voltage_avg'] + 1e-5)
+    df['stress_index'] = df['aggressive_acceleration_score'] * df['hard_braking_score']
+    return df
+
+
 # ==============================================================================
-# Parameter Definitions & Explanations Dictionary
+# Parameter Definitions & Explanations Dictionary (Derived from Data & Report)
 # ==============================================================================
 SLIDER_CONFIG = {
     # 1. Electrochemical Wear
     'battery_health_percent': {
         'name': 'Battery State of Health (SOH)',
-        'min': 50.0, 'max': 100.0, 'step': 0.5, 'default': 85.34, 'unit': '%',
+        'min': 45.0, 'max': 100.0, 'step': 0.5, 'default': 85.34, 'unit': '%',
         'desc': 'Percentage of usable charge capacity relative to factory fresh rating.',
-        'safe_range': 'Nominal: > 80.0% · End of Life (EOL): 70.0% – 80.0%',
-        'physics': 'Capacity fade occurs via active lithium trapping and solid electrolyte interphase (SEI) thickening.'
+        'safe_range': 'Observed Dataset: 47.0% – 99.8% · EOL Threshold: 70.0% – 80.0%',
+        'physics': 'Capacity fade occurs via active lithium trapping and SEI layer thickening.'
     },
     'capacity_loss_percent': {
         'name': 'Capacity Fade Loss',
-        'min': 0.0, 'max': 50.0, 'step': 0.5, 'default': 14.66, 'unit': '%',
+        'min': 0.0, 'max': 55.0, 'step': 0.5, 'default': 14.66, 'unit': '%',
         'desc': 'Cumulative irreversible capacity reduction from the original pack rating.',
-        'safe_range': 'Nominal: < 15.0% · Elevated Fade: > 25.0%',
+        'safe_range': 'Observed Dataset: 0.2% – 52.9% · Collinear with SOH (|r|=1.0)',
         'physics': 'Direct loss of active cathode material due to micro-cracking and transition metal dissolution.'
     },
     'internal_resistance': {
         'name': 'Internal Cell Resistance (ESR)',
-        'min': 0.05, 'max': 0.85, 'step': 0.01, 'default': 0.22, 'unit': 'mΩ',
+        'min': 0.03, 'max': 1.15, 'step': 0.01, 'default': 0.22, 'unit': 'Ω',
         'desc': 'Ohmic and charge-transfer resistance to ionic transport within cells.',
-        'safe_range': 'Nominal: 0.10 – 0.30 mΩ · Critical Warning: > 0.45 mΩ',
+        'safe_range': 'Observed: 0.03 – 1.12 Ω · Elevated Degradation: > 0.45 Ω',
         'physics': 'High resistance causes severe I²R Joule heating during acceleration and rapid voltage sag.'
     },
     'cycle_count': {
         'name': 'Completed Full Cycles',
-        'min': 50, 'max': 4500, 'step': 50, 'default': 1315, 'unit': 'cycles',
+        'min': 100, 'max': 3500, 'step': 50, 'default': 1315, 'unit': 'cycles',
         'desc': 'Equivalent 100% Depth-of-Discharge (DoD) energy cycles delivered.',
-        'safe_range': 'Design Lifespan: 3,000 – 4,500 cycles',
+        'safe_range': 'Observed Dataset: 173 – 3,369 cycles (Mean: 1,770 cycles)',
         'physics': 'Repeated expansion/contraction induces mechanical fatigue and delamination of electrode coating.'
     },
 
     # 2. Thermal Dynamics
     'cell_temperature_max': {
         'name': 'Max Cell Hotspot Temp',
-        'min': 15.0, 'max': 65.0, 'step': 0.5, 'default': 40.18, 'unit': '°C',
-        'desc': 'Peak localized temperature recorded across all pack thermal sensors.',
-        'safe_range': 'Nominal: 20°C – 40°C · Critical Thermal Boundary: > 52°C',
-        'physics': 'Temperatures > 55°C initiate exothermic decomposition of the SEI layer and binder breakdown.'
+        'min': 15.0, 'max': 85.0, 'step': 0.5, 'default': 40.18, 'unit': '°C',
+        'desc': 'Peak localized temperature recorded across pack thermal sensors.',
+        'safe_range': 'Observed: -4.9°C – 86.9°C · Elevated Thermal Boundary: > 52°C',
+        'physics': 'Temperatures > 55°C accelerate SEI decomposition and initiate exothermic self-heating reactions.'
     },
     'cell_temperature_avg': {
         'name': 'Mean Pack Temperature',
-        'min': 15.0, 'max': 55.0, 'step': 0.5, 'default': 19.70, 'unit': '°C',
+        'min': 15.0, 'max': 60.0, 'step': 0.5, 'default': 19.70, 'unit': '°C',
         'desc': 'Volumetric average temperature across all monitored battery modules.',
-        'safe_range': 'Nominal: 18°C – 35°C',
-        'physics': 'Large temperature spread (Max - Avg > 12°C) causes non-uniform aging across individual parallel cells.'
+        'safe_range': 'Observed Dataset: -9.8°C – 62.1°C',
+        'physics': 'Large temperature spread (Max - Avg > 12°C) causes non-uniform module aging.'
     },
     'thermal_runaway_risk': {
         'name': 'Thermal Runaway Hazard Index',
         'min': 0.0, 'max': 100.0, 'step': 1.0, 'default': 12.63, 'unit': '/100',
         'desc': 'Composite BMS probability index of uncontrolled self-accelerating heating.',
-        'safe_range': 'Nominal: < 25.0 · Elevated Hazard: > 35.0 · Extreme: > 60.0',
-        'physics': 'Scores likelihood of self-heating cascading faster than the liquid cooling loop can extract BTUs.'
+        'safe_range': 'Observed: 0.0 – 100.0 · Correlated with Thermal Health (|r|=0.987)',
+        'physics': 'Scores likelihood of self-heating cascading faster than the liquid cooling loop can extract heat.'
     },
     'thermal_health_score': {
         'name': 'BMS Thermal Loop Health',
         'min': 0.0, 'max': 100.0, 'step': 1.0, 'default': 91.65, 'unit': '/100',
         'desc': 'Health indicator of coolant pumps, radiator valves, and chiller plate performance.',
-        'safe_range': 'Nominal: > 80.0 · Degraded Cooling: < 70.0',
+        'safe_range': 'Observed Dataset: 0.0 – 100.0 (Higher indicates healthier heat rejection)',
         'physics': 'Low scores signify pump cavitation, restricted coolant passages, or aging thermal interface material.'
     },
 
@@ -1230,47 +1268,56 @@ SLIDER_CONFIG = {
         'name': 'Average Charging Power',
         'min': 5.0, 'max': 150.0, 'step': 1.0, 'default': 29.39, 'unit': 'kW',
         'desc': 'Mean electrical power accepted during typical charging sessions.',
-        'safe_range': 'AC Level 2: 7 – 22 kW · High-Power DC Fast Charge: 50 – 150 kW',
+        'safe_range': 'AC Level 2: 7 – 22 kW · DC Fast Charge: 50 – 150 kW',
         'physics': 'High DC charging currents induce lithium plating at the anode when cells are cold or aged.'
     },
     'battery_capacity_kwh': {
         'name': 'Pack Energy Capacity',
-        'min': 30.0, 'max': 140.0, 'step': 1.0, 'default': 83.84, 'unit': 'kWh',
+        'min': 30.0, 'max': 150.0, 'step': 1.0, 'default': 83.84, 'unit': 'kWh',
         'desc': 'Total nominal nameplate energy storage capacity of the traction pack.',
-        'safe_range': 'Typical Passenger EV: 50 – 90 kWh · Commercial / Premium: 100 – 140 kWh',
-        'physics': 'Direct denominator in computing the effective charging C-Rate proxy (Power / Capacity).'
+        'safe_range': 'Observed Dataset: 30.0 – 149.8 kWh (Denominator for C-Rate proxy)',
+        'physics': 'Used to compute the effective charging C-Rate proxy (Power / Capacity).'
     },
     'aggressive_acceleration_score': {
         'name': 'Aggressive Acceleration Score',
         'min': 0.0, 'max': 100.0, 'step': 1.0, 'default': 12.94, 'unit': '/100',
-        'desc': 'Frequency of rapid throttle pedal tips and severe high-current discharge draws.',
-        'safe_range': 'Gentle Commuter: < 25.0 · Aggressive Dynamic Stress: > 40.0',
+        'desc': 'Frequency of rapid throttle pedal tips and high-current discharge draws.',
+        'safe_range': 'Observed Dataset: 0.0 – 100.0',
         'physics': 'High discharge current spikes create electro-mechanical shear strain on current collector tabs.'
     },
     'hard_braking_score': {
         'name': 'Hard Braking / Inrush Score',
         'min': 0.0, 'max': 100.0, 'step': 1.0, 'default': 10.40, 'unit': '/100',
         'desc': 'Frequency of harsh deceleration causing high-current regenerative inrush surges.',
-        'safe_range': 'Smooth Driving: < 20.0 · Heavy Regenerative Strain: > 35.0',
+        'safe_range': 'Observed Dataset: 0.0 – 100.0',
         'physics': 'Severe regen inrush at high state-of-charge causes transient over-voltage stress on separator membranes.'
     }
 }
 
 SCENARIO_KEYS = list(scenarios.keys())
 
+def load_into_state(scenario_data: dict, slider_configs: dict):
+    """Safely clamp and type-cast telemetry values before storing in session_state."""
+    for k, cfg in slider_configs.items():
+        val = scenario_data.get(k, cfg['default'])
+        if pd.isna(val) or val is None:
+            val = cfg['default']
+        val = max(min(float(val), float(cfg['max'])), float(cfg['min']))
+        if isinstance(cfg['step'], int):
+            val = int(round(val))
+        st.session_state[f"input_{k}"] = val
+
 # Initialize session state
 if 'active_scenario' not in st.session_state:
     st.session_state['active_scenario'] = SCENARIO_KEYS[0]
-    sc_defaults = scenarios[SCENARIO_KEYS[0]]['data']
-    for k, cfg in SLIDER_CONFIG.items():
-        v = sc_defaults.get(k, cfg['default'])
-        if pd.isna(v) or v is None:
-            v = cfg['default']
-        st.session_state[f"input_{k}"] = float(v)
+    load_into_state(scenarios[SCENARIO_KEYS[0]]['data'], SLIDER_CONFIG)
+
+if 'tau_cutoff' not in st.session_state:
+    st.session_state['tau_cutoff'] = 0.193
 
 
 # ==============================================================================
-# Sidebar: Engine & Decision Cutoff Controls
+# Sidebar: Engine & Persistent Safety Cutoff Controls
 # ==============================================================================
 st.sidebar.markdown(
     compact(f"""
@@ -1295,43 +1342,44 @@ engine_choice = st.sidebar.radio(
 
 # 2. Decision Threshold Control (Safety Cutoff)
 sb_section("02", "Safety Threshold Calibration")
-tau_panel = st.sidebar.empty()
+
+col_b1, col_b2 = st.sidebar.columns(2)
+if col_b1.button("Default (0.50)", use_container_width=True):
+    st.session_state['tau_cutoff'] = 0.50
+    st.rerun()
+if col_b2.button("Safety (0.193)", use_container_width=True):
+    st.session_state['tau_cutoff'] = 0.193
+    st.rerun()
 
 tau_slider = st.sidebar.slider(
     "Critical Failure Cutoff (τ)",
     min_value=0.05,
     max_value=0.95,
-    value=0.193,  # The Calibrated Safety Threshold
+    value=float(st.session_state['tau_cutoff']),
     step=0.01,
-    help="Default threshold is 0.50. The calibrated safety threshold is 0.193, which achieved 90.25% recall on the evaluation set."
+    key="tau_slider_widget",
+    help="Default threshold is 0.50. The calibrated safety threshold is 0.193, achieving 90.25% recall on the evaluation set."
 )
+st.session_state['tau_cutoff'] = tau_slider
 
-# Benchmark quick toggle buttons
-col_b1, col_b2 = st.sidebar.columns(2)
-if col_b1.button("Default (0.50)"):
-    tau_slider = 0.50
-if col_b2.button("Safety (0.193)"):
-    tau_slider = 0.193
-
-# Update threshold display state
-if abs(tau_slider - 0.193) < 1e-9:
-    tau_state = "CALIBRATED"
-elif abs(tau_slider - 0.50) < 1e-9:
-    tau_state = "DEFAULT"
+if abs(tau_slider - 0.193) < 1e-4:
+    tau_state = "CALIBRATED (SAFETY)"
+elif abs(tau_slider - 0.50) < 1e-4:
+    tau_state = "DEFAULT (0.50)"
 else:
     tau_state = "CUSTOM"
 
-tau_panel.markdown(
+st.sidebar.markdown(
     compact(f"""
     <div class="tau-panel">
         <div class="tau-top">
-            <div class="tau-label">Safety Cutoff</div>
+            <div class="tau-label">Operating Cutoff</div>
             <div class="tau-state">{tau_state}</div>
         </div>
         <div class="tau-value"><span class="tau-sym">τ</span> = {tau_slider:.3f}</div>
         <div class="tau-refs">
-            <div class="tau-ref {'active' if tau_state == 'DEFAULT' else ''}"><span>DEFAULT</span><b>0.50</b></div>
-            <div class="tau-ref {'active' if tau_state == 'CALIBRATED' else ''}"><span>SAFETY</span><b>0.193</b></div>
+            <div class="tau-ref {'active' if abs(tau_slider-0.50)<1e-4 else ''}"><span>DEFAULT</span><b>0.500</b></div>
+            <div class="tau-ref {'active' if abs(tau_slider-0.193)<1e-4 else ''}"><span>SAFETY</span><b>0.193</b></div>
         </div>
     </div>
     """),
@@ -1341,7 +1389,7 @@ tau_panel.markdown(
 # 3. Model Architecture Specs in Sidebar
 sb_section("03", "System Specifications")
 st.sidebar.markdown(compact("""
-<div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:0.75rem; font-size:0.76rem; color:#64748B; line-height:1.5;">
+<div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:0.75rem; font-size:0.76rem; color:#64748B; line-height:1.55;">
     <div style="display:flex; justify-content:space-between; margin-bottom:0.35rem;">
         <span style="font-weight:600; color:#0F172A;">Task 1 Architecture:</span>
         <span style="font-family:'JetBrains Mono'; font-weight:700; color:#2563EB;">HistGB (R²=0.897)</span>
@@ -1355,28 +1403,38 @@ st.sidebar.markdown(compact("""
         <span style="font-family:'JetBrains Mono'; font-weight:700; color:#0F172A;">13.45 : 1</span>
     </div>
     <div style="display:flex; justify-content:space-between;">
-        <span style="font-weight:600; color:#0F172A;">Calibrated Recall:</span>
-        <span style="font-family:'JetBrains Mono'; font-weight:700; color:#059669;">90.25%</span>
+        <span style="font-weight:600; color:#0F172A;">Evaluation Recall:</span>
+        <span style="font-family:'JetBrains Mono'; font-weight:700; color:#059669;">90.25% (τ=0.193)</span>
     </div>
 </div>
 """), unsafe_allow_html=True)
 
+
 # ==============================================================================
-# Main Dashboard: Header
+# Main Dashboard: Header & Step-by-Step Guide
 # ==============================================================================
 st.markdown(
     compact(f'<div class="main-header">{BOLT_SVG}<span>EV Battery Prognostics &amp; Health Management (PHM)</span></div>'),
     unsafe_allow_html=True,
 )
 st.markdown(
-    '<div class="sub-header">Dual-Task Edge Prognostics: Continuous RUL Cycles Regression &amp; Calibrated Failure Risk Early Warning</div>',
+    '<div class="sub-header">Dual-Task Edge Prognostics: Continuous RUL Cycles Regression (Task 1) &amp; Calibrated Failure Risk Early Warning (Task 2)</div>',
     unsafe_allow_html=True,
 )
 st.markdown('<div class="hdr-rule"></div>', unsafe_allow_html=True)
 
+# 3-Step Guide for Non-Technical Users
+st.markdown(compact("""
+<div class="how-to-use">
+    <div class="how-step"><b style="color:#2563EB;">Step 1:</b> Select a vehicle scenario below or adjust sliders in the studio</div>
+    <div class="how-step"><b style="color:#2563EB;">Step 2:</b> Choose your operating cutoff (τ) in the sidebar (Default 0.50 vs Safety 0.193)</div>
+    <div class="how-step"><b style="color:#2563EB;">Step 3:</b> Review Remaining Life (Task 1) and Early Warning Risk (Task 2)</div>
+</div>
+"""), unsafe_allow_html=True)
+
 
 # ==============================================================================
-# Main Section: Attractive Scenario Showcase Cards
+# Main Section: Attractive Dynamic Scenario Showcase Cards
 # ==============================================================================
 st.markdown('<div class="section-title">Verified Vehicle Telemetry Scenarios</div>', unsafe_allow_html=True)
 st.markdown(
@@ -1394,10 +1452,6 @@ scenario_meta = [
         'badge_text': 'NOMINAL HEALTH',
         'title': 'Factory-Fresh Battery',
         'sub': 'Low Cycles · Peak Health',
-        'm1': ('Cycles', '1,315'),
-        'm2': ('SOH', '85.7%'),
-        'm3': ('Max Temp', '40.2°C'),
-        'm4': ('Risk Prob', '< 0.01%'),
         'desc': 'Nominal operation with low resistance and stable thermal dynamics.'
     },
     {
@@ -1407,10 +1461,6 @@ scenario_meta = [
         'badge_text': 'NORMAL WEAR',
         'title': 'Aged Fleet Commuter',
         'sub': 'Moderate Degradation',
-        'm1': ('Cycles', '1,478'),
-        'm2': ('SOH', '62.8%'),
-        'm3': ('Max Temp', '29.2°C'),
-        'm4': ('Risk Prob', '8.9%'),
         'desc': 'Expected capacity fade with stable thermal envelope.'
     },
     {
@@ -1420,11 +1470,7 @@ scenario_meta = [
         'badge_text': '⚡ INTERCEPTED AT τ=0.193',
         'title': 'Incipient Hazard',
         'sub': 'Early Warning Showcase',
-        'm1': ('Cycles', '1,796'),
-        'm2': ('SOH', '84.9%'),
-        'm3': ('Max Temp', '54.9°C'),
-        'm4': ('Risk Prob', '24.6%'),
-        'desc': 'Missed by default 0.50 cutoff, but caught early by calibrated safety threshold!'
+        'desc': 'Passes default 0.50 cutoff, but caught early by calibrated safety threshold!'
     },
     {
         'key': SCENARIO_KEYS[3],
@@ -1433,11 +1479,7 @@ scenario_meta = [
         'badge_text': 'CRITICAL RUNAWAY',
         'title': 'Active Runaway Risk',
         'sub': 'Imminent Failure State',
-        'm1': ('Cycles', '2,318'),
-        'm2': ('SOH', '59.7%'),
-        'm3': ('Spread', '18.8°C'),
-        'm4': ('Risk Prob', '99.5%'),
-        'desc': 'Severe thermal divergence and capacity collapse requiring immediate shutdown.'
+        'desc': 'Severe thermal divergence and capacity collapse requiring immediate inspection.'
     }
 ]
 
@@ -1446,6 +1488,21 @@ for idx, col in enumerate(sc_cols):
     is_active = (st.session_state['active_scenario'] == info['key'])
     active_cls = "active" if is_active else ""
     pill_html = '<span class="sc-active-pill">★ ACTIVE</span>' if is_active else f'<span class="status-badge {info["badge"]}">{info["badge_text"]}</span>'
+    
+    # Compute quick telemetry stats dynamically from scenario data
+    s_data = scenarios[info['key']]['data']
+    s_cycles = f"{int(s_data.get('cycle_count', 0)):,}"
+    s_soh = f"{s_data.get('battery_health_percent', 0.0):.1f}%"
+    s_temp = f"{s_data.get('cell_temperature_max', 0.0):.1f}°C"
+    
+    # Run dynamic inference for card probability badge
+    try:
+        s_df = featurize(pd.DataFrame([s_data]))
+        s_trans = ct.transform(s_df[meta['features']])
+        s_prob = float(model_lr.predict_proba(s_trans)[0, 1])
+        s_risk_str = f"{s_prob:.1%}" if s_prob >= 0.001 else "< 0.1%"
+    except Exception:
+        s_risk_str = "N/A"
 
     with col:
         st.markdown(compact(f"""
@@ -1455,39 +1512,283 @@ for idx, col in enumerate(sc_cols):
                 <div class="sc-title">{info['title']}</div>
                 <div class="sc-sub">{info['sub']}</div>
                 <div class="sc-metrics">
-                    <div class="sc-metric-item">{info['m1'][0]}<b>{info['m1'][1]}</b></div>
-                    <div class="sc-metric-item">{info['m2'][0]}<b>{info['m2'][1]}</b></div>
-                    <div class="sc-metric-item">{info['m3'][0]}<b>{info['m3'][1]}</b></div>
-                    <div class="sc-metric-item">{info['m4'][0]}<b>{info['m4'][1]}</b></div>
+                    <div class="sc-metric-item">Cycles<b>{s_cycles}</b></div>
+                    <div class="sc-metric-item">SOH<b>{s_soh}</b></div>
+                    <div class="sc-metric-item">Max Temp<b>{s_temp}</b></div>
+                    <div class="sc-metric-item">Failure Risk<b>{s_risk_str}</b></div>
                 </div>
             </div>
         </div>
         """), unsafe_allow_html=True)
 
         btn_label = f"✓ Loaded ({info['title']})" if is_active else f"Load {info['title']}"
-        if st.button(btn_label, key=f"btn_sc_{idx}"):
+        if st.button(btn_label, key=f"btn_sc_{idx}", use_container_width=True):
             st.session_state['active_scenario'] = info['key']
-            sc_data = scenarios[info['key']]['data']
-            for k, cfg in SLIDER_CONFIG.items():
-                v = sc_data.get(k, cfg['default'])
-                if pd.isna(v) or v is None:
-                    v = cfg['default']
-                st.session_state[f"input_{k}"] = float(v)
+            load_into_state(scenarios[info['key']]['data'], SLIDER_CONFIG)
             st.rerun()
 
 st.markdown("<div style='height: 1.2rem;'></div>", unsafe_allow_html=True)
 
 
 # ==============================================================================
-# Main Section: Interactive Telemetry & Feature Studio (Large Page Format)
+# Main Section: Interactive Telemetry & Feature Studio
 # ==============================================================================
 st.markdown('<div class="section-title">Interactive Telemetry &amp; Feature Studio</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="section-sub">Adjust real-time battery telemetry inputs below. Each parameter displays its <b>physical meaning</b>, <b>normal operating limits</b>, and <b>degradation mechanics</b>.</div>',
+    '<div class="section-sub">Adjust live battery telemetry inputs below. Each parameter displays its <b>physical meaning</b>, <b>normal operating limits</b>, and <b>degradation mechanics</b>.<br>'
+    '<span style="font-size:0.75rem; color:#2563EB; font-weight:600;">ℹ️ Studio mode adjusts 12 primary physical drivers; 61 secondary attributes remain locked to baseline telemetry.</span></div>',
     unsafe_allow_html=True
 )
 
-# Retrieve current scenario baseline data to preserve all 156 features
+col_studio1, col_studio2, col_studio3 = st.columns(3, gap="medium")
+
+# ----- Panel 1: Electrochemical Wear & Capacity -----
+with col_studio1:
+    with st.container(border=True):
+        st.markdown(compact("""
+        <div class="studio-head">
+            <div class="studio-head-icon" style="background:#ECFDF5; color:#059669;">🔋</div>
+            <div class="studio-head-title">Electrochemical Wear &amp; Capacity</div>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Battery Health
+        c1 = SLIDER_CONFIG['battery_health_percent']
+        v_health = st.slider(
+            c1['name'], c1['min'], c1['max'],
+            float(st.session_state.get('input_battery_health_percent', c1['default'])),
+            c1['step'], key='input_battery_health_percent'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c1['desc']}<br>
+            <b>Physics:</b> {c1['physics']}
+            <span class="limits">{c1['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Capacity Loss
+        c2 = SLIDER_CONFIG['capacity_loss_percent']
+        v_cap_loss = st.slider(
+            c2['name'], c2['min'], c2['max'],
+            float(st.session_state.get('input_capacity_loss_percent', 100.0 - v_health)),
+            c2['step'], key='input_capacity_loss_percent'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c2['desc']}<br>
+            <b>Physics:</b> {c2['physics']}
+            <span class="limits">{c2['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Internal Resistance
+        c3 = SLIDER_CONFIG['internal_resistance']
+        v_res = st.slider(
+            c3['name'], c3['min'], c3['max'],
+            float(st.session_state.get('input_internal_resistance', c3['default'])),
+            c3['step'], key='input_internal_resistance'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c3['desc']}<br>
+            <b>Physics:</b> {c3['physics']}
+            <span class="limits">{c3['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Cycle Count
+        c4 = SLIDER_CONFIG['cycle_count']
+        v_cycles = st.slider(
+            c4['name'], c4['min'], c4['max'],
+            int(st.session_state.get('input_cycle_count', c4['default'])),
+            c4['step'], key='input_cycle_count'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c4['desc']}<br>
+            <b>Physics:</b> {c4['physics']}
+            <span class="limits">{c4['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+# ----- Panel 2: Thermal Dynamics & Heat Safety -----
+with col_studio2:
+    with st.container(border=True):
+        st.markdown(compact("""
+        <div class="studio-head">
+            <div class="studio-head-icon" style="background:#EFF6FF; color:#2563EB;">🌡️</div>
+            <div class="studio-head-title">Thermal Dynamics &amp; Safety</div>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Max Cell Temp
+        c5 = SLIDER_CONFIG['cell_temperature_max']
+        v_temp_max = st.slider(
+            c5['name'], c5['min'], c5['max'],
+            float(st.session_state.get('input_cell_temperature_max', c5['default'])),
+            c5['step'], key='input_cell_temperature_max'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer">
+            <b>What it means:</b> {c5['desc']}<br>
+            <b>Physics:</b> {c5['physics']}
+            <span class="limits">{c5['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Avg Cell Temp
+        c6 = SLIDER_CONFIG['cell_temperature_avg']
+        v_temp_avg = st.slider(
+            c6['name'], c6['min'], c6['max'],
+            float(st.session_state.get('input_cell_temperature_avg', c6['default'])),
+            c6['step'], key='input_cell_temperature_avg'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer">
+            <b>What it means:</b> {c6['desc']}<br>
+            <b>Physics:</b> {c6['physics']}
+            <span class="limits">{c6['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Thermal Runaway Risk
+        c7 = SLIDER_CONFIG['thermal_runaway_risk']
+        v_runaway = st.slider(
+            c7['name'], c7['min'], c7['max'],
+            float(st.session_state.get('input_thermal_runaway_risk', c7['default'])),
+            c7['step'], key='input_thermal_runaway_risk'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer">
+            <b>What it means:</b> {c7['desc']}<br>
+            <b>Physics:</b> {c7['physics']}
+            <span class="limits">{c7['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Thermal Health Score
+        c8 = SLIDER_CONFIG['thermal_health_score']
+        v_therm_health = st.slider(
+            c8['name'], c8['min'], c8['max'],
+            float(st.session_state.get('input_thermal_health_score', c8['default'])),
+            c8['step'], key='input_thermal_health_score'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer">
+            <b>What it means:</b> {c8['desc']}<br>
+            <b>Physics:</b> {c8['physics']}
+            <span class="limits">{c8['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+# ----- Panel 3: Charging Power, C-Rate & Driving Stress -----
+with col_studio3:
+    with st.container(border=True):
+        st.markdown(compact("""
+        <div class="studio-head">
+            <div class="studio-head-icon" style="background:#F0FDF4; color:#047857;">⚡</div>
+            <div class="studio-head-title">Charging Power &amp; Dynamic Stress</div>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Charge Power
+        c9 = SLIDER_CONFIG['average_charge_power_kw']
+        v_charge_kw = st.slider(
+            c9['name'], c9['min'], c9['max'],
+            float(st.session_state.get('input_average_charge_power_kw', c9['default'])),
+            c9['step'], key='input_average_charge_power_kw'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c9['desc']}<br>
+            <b>Physics:</b> {c9['physics']}
+            <span class="limits">{c9['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Pack Capacity
+        c10 = SLIDER_CONFIG['battery_capacity_kwh']
+        v_capacity_kwh = st.slider(
+            c10['name'], c10['min'], c10['max'],
+            float(st.session_state.get('input_battery_capacity_kwh', c10['default'])),
+            c10['step'], key='input_battery_capacity_kwh'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c10['desc']}<br>
+            <b>Physics:</b> {c10['physics']}
+            <span class="limits">{c10['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Aggressive Acceleration
+        c11 = SLIDER_CONFIG['aggressive_acceleration_score']
+        v_accel = st.slider(
+            c11['name'], c11['min'], c11['max'],
+            float(st.session_state.get('input_aggressive_acceleration_score', c11['default'])),
+            c11['step'], key='input_aggressive_acceleration_score'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c11['desc']}<br>
+            <b>Physics:</b> {c11['physics']}
+            <span class="limits">{c11['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+        # Hard Braking
+        c12 = SLIDER_CONFIG['hard_braking_score']
+        v_brake = st.slider(
+            c12['name'], c12['min'], c12['max'],
+            float(st.session_state.get('input_hard_braking_score', c12['default'])),
+            c12['step'], key='input_hard_braking_score'
+        )
+        st.markdown(compact(f"""
+        <div class="feature-explainer green-accent">
+            <b>What it means:</b> {c12['desc']}<br>
+            <b>Physics:</b> {c12['physics']}
+            <span class="limits">{c12['safe_range']}</span>
+        </div>
+        """), unsafe_allow_html=True)
+
+
+# ==============================================================================
+# Stage 9/10: Physical Input Validation Layer
+# ==============================================================================
+validation_warnings = []
+validation_errors = []
+
+# Physical consistency check: Temperature Spread
+if v_temp_max < v_temp_avg:
+    validation_errors.append(f"Physical Anomaly: Maximum Cell Hotspot Temperature ({v_temp_max:.1f}°C) cannot be lower than Average Pack Temperature ({v_temp_avg:.1f}°C).")
+
+# Physical consistency check: Degradation Conservation
+health_loss_sum = v_health + v_cap_loss
+if abs(health_loss_sum - 100.0) > 6.0:
+    validation_warnings.append(f"Collinearity Drift Notice: State of Health ({v_health:.1f}%) and Capacity Loss ({v_cap_loss:.1f}%) sum to {health_loss_sum:.1f}% (Nominal conservation sum is ~100%).")
+
+# Outlier bounds check against training set
+if v_temp_max > feature_ranges['cell_temperature_max']['iqr_upper']:
+    validation_warnings.append(f"Statistical Outlier: Max Hotspot Temperature ({v_temp_max:.1f}°C) exceeds upper training IQR boundary ({feature_ranges['cell_temperature_max']['iqr_upper']:.1f}°C).")
+
+if v_res > feature_ranges['internal_resistance']['iqr_upper']:
+    validation_warnings.append(f"High Resistance: Internal Resistance ({v_res:.3f} Ω) lies in the top 1% extreme wear tail.")
+
+if validation_errors:
+    for err in validation_errors:
+        st.error(f"⛔ {err}")
+    st.stop()
+
+if validation_warnings:
+    with st.expander("⚠️ Telemetry Consistency & Boundary Advisories", expanded=False):
+        for warn in validation_warnings:
+            st.warning(warn)
+
+
+# ==============================================================================
+# Model Feature Engineering & Dual-Task Inference
+# ==============================================================================
 active_scenario_name = st.session_state['active_scenario']
 current_data = scenarios[active_scenario_name]['data'].copy()
 
@@ -1499,225 +1800,7 @@ for col in meta['features']:
         elif col in meta['cat_options']:
             current_data[col] = meta['cat_options'][col][0]
 
-col_studio1, col_studio2, col_studio3 = st.columns(3, gap="medium")
-
-# ----- Panel 1: Electrochemical Wear & Capacity -----
-with col_studio1:
-    st.markdown(compact("""
-    <div class="studio-card">
-        <div class="studio-head">
-            <div class="studio-head-icon" style="background:#ECFDF5; color:#059669;">🔋</div>
-            <div class="studio-head-title">Electrochemical Wear &amp; Capacity</div>
-        </div>
-    """), unsafe_allow_html=True)
-
-    # Battery Health
-    c1 = SLIDER_CONFIG['battery_health_percent']
-    v_health = st.slider(
-        c1['name'], c1['min'], c1['max'],
-        float(st.session_state.get('input_battery_health_percent', c1['default'])),
-        c1['step'], key='input_battery_health_percent'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c1['desc']}<br>
-        <b>Physics:</b> {c1['physics']}
-        <span class="limits">{c1['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Capacity Loss
-    c2 = SLIDER_CONFIG['capacity_loss_percent']
-    v_cap_loss = st.slider(
-        c2['name'], c2['min'], c2['max'],
-        float(st.session_state.get('input_capacity_loss_percent', 100.0 - v_health)),
-        c2['step'], key='input_capacity_loss_percent'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c2['desc']}<br>
-        <b>Physics:</b> {c2['physics']}
-        <span class="limits">{c2['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Internal Resistance
-    c3 = SLIDER_CONFIG['internal_resistance']
-    v_res = st.slider(
-        c3['name'], c3['min'], c3['max'],
-        float(st.session_state.get('input_internal_resistance', c3['default'])),
-        c3['step'], key='input_internal_resistance'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c3['desc']}<br>
-        <b>Physics:</b> {c3['physics']}
-        <span class="limits">{c3['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Cycle Count
-    c4 = SLIDER_CONFIG['cycle_count']
-    v_cycles = st.slider(
-        c4['name'], c4['min'], c4['max'],
-        int(st.session_state.get('input_cycle_count', c4['default'])),
-        c4['step'], key='input_cycle_count'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c4['desc']}<br>
-        <b>Physics:</b> {c4['physics']}
-        <span class="limits">{c4['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ----- Panel 2: Thermal Dynamics & Heat Safety -----
-with col_studio2:
-    st.markdown(compact("""
-    <div class="studio-card">
-        <div class="studio-head">
-            <div class="studio-head-icon" style="background:#EFF6FF; color:#2563EB;">🌡️</div>
-            <div class="studio-head-title">Thermal Dynamics &amp; Safety</div>
-        </div>
-    """), unsafe_allow_html=True)
-
-    # Max Cell Temp
-    c5 = SLIDER_CONFIG['cell_temperature_max']
-    v_temp_max = st.slider(
-        c5['name'], c5['min'], c5['max'],
-        float(st.session_state.get('input_cell_temperature_max', c5['default'])),
-        c5['step'], key='input_cell_temperature_max'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer">
-        <b>What it means:</b> {c5['desc']}<br>
-        <b>Physics:</b> {c5['physics']}
-        <span class="limits">{c5['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Avg Cell Temp
-    c6 = SLIDER_CONFIG['cell_temperature_avg']
-    v_temp_avg = st.slider(
-        c6['name'], c6['min'], c6['max'],
-        float(st.session_state.get('input_cell_temperature_avg', c6['default'])),
-        c6['step'], key='input_cell_temperature_avg'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer">
-        <b>What it means:</b> {c6['desc']}<br>
-        <b>Physics:</b> {c6['physics']}
-        <span class="limits">{c6['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Thermal Runaway Risk
-    c7 = SLIDER_CONFIG['thermal_runaway_risk']
-    v_runaway = st.slider(
-        c7['name'], c7['min'], c7['max'],
-        float(st.session_state.get('input_thermal_runaway_risk', c7['default'])),
-        c7['step'], key='input_thermal_runaway_risk'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer">
-        <b>What it means:</b> {c7['desc']}<br>
-        <b>Physics:</b> {c7['physics']}
-        <span class="limits">{c7['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Thermal Health Score
-    c8 = SLIDER_CONFIG['thermal_health_score']
-    v_therm_health = st.slider(
-        c8['name'], c8['min'], c8['max'],
-        float(st.session_state.get('input_thermal_health_score', c8['default'])),
-        c8['step'], key='input_thermal_health_score'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer">
-        <b>What it means:</b> {c8['desc']}<br>
-        <b>Physics:</b> {c8['physics']}
-        <span class="limits">{c8['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ----- Panel 3: Charging Power, C-Rate & Driving Stress -----
-with col_studio3:
-    st.markdown(compact("""
-    <div class="studio-card">
-        <div class="studio-head">
-            <div class="studio-head-icon" style="background:#F0FDF4; color:#047857;">⚡</div>
-            <div class="studio-head-title">Charging Power &amp; Dynamic Stress</div>
-        </div>
-    """), unsafe_allow_html=True)
-
-    # Charge Power
-    c9 = SLIDER_CONFIG['average_charge_power_kw']
-    v_charge_kw = st.slider(
-        c9['name'], c9['min'], c9['max'],
-        float(st.session_state.get('input_average_charge_power_kw', c9['default'])),
-        c9['step'], key='input_average_charge_power_kw'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c9['desc']}<br>
-        <b>Physics:</b> {c9['physics']}
-        <span class="limits">{c9['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Pack Capacity
-    c10 = SLIDER_CONFIG['battery_capacity_kwh']
-    v_capacity_kwh = st.slider(
-        c10['name'], c10['min'], c10['max'],
-        float(st.session_state.get('input_battery_capacity_kwh', c10['default'])),
-        c10['step'], key='input_battery_capacity_kwh'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c10['desc']}<br>
-        <b>Physics:</b> {c10['physics']}
-        <span class="limits">{c10['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Aggressive Acceleration
-    c11 = SLIDER_CONFIG['aggressive_acceleration_score']
-    v_accel = st.slider(
-        c11['name'], c11['min'], c11['max'],
-        float(st.session_state.get('input_aggressive_acceleration_score', c11['default'])),
-        c11['step'], key='input_aggressive_acceleration_score'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c11['desc']}<br>
-        <b>Physics:</b> {c11['physics']}
-        <span class="limits">{c11['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    # Hard Braking
-    c12 = SLIDER_CONFIG['hard_braking_score']
-    v_brake = st.slider(
-        c12['name'], c12['min'], c12['max'],
-        float(st.session_state.get('input_hard_braking_score', c12['default'])),
-        c12['step'], key='input_hard_braking_score'
-    )
-    st.markdown(compact(f"""
-    <div class="feature-explainer green-accent">
-        <b>What it means:</b> {c12['desc']}<br>
-        <b>Physics:</b> {c12['physics']}
-        <span class="limits">{c12['safe_range']}</span>
-    </div>
-    """), unsafe_allow_html=True)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# Update current_data dictionary with live values from sliders
+# Overwrite modified slider parameters
 current_data['battery_health_percent'] = v_health
 current_data['capacity_loss_percent'] = v_cap_loss
 current_data['internal_resistance'] = v_res
@@ -1731,19 +1814,8 @@ current_data['battery_capacity_kwh'] = v_capacity_kwh
 current_data['aggressive_acceleration_score'] = v_accel
 current_data['hard_braking_score'] = v_brake
 
-# ==============================================================================
-# Model Feature Engineering & Dual-Task Inference
-# ==============================================================================
-input_df = pd.DataFrame([current_data])
-
-# Recalculate 7 verified Domain Engineering Features
-input_df['temperature_spread'] = input_df['cell_temperature_max'] - input_df['cell_temperature_avg']
-input_df['efficiency_gap'] = (input_df['charge_efficiency'] - input_df['discharge_efficiency']).abs()
-input_df['health_loss_interaction'] = (input_df['battery_health_percent'] * input_df['capacity_loss_percent']) / 100.0
-input_df['resistance_per_1000_cycles'] = (input_df['internal_resistance'] / (input_df['cycle_count'] + 1.0)) * 1000.0
-input_df['c_rate_proxy'] = input_df['average_charge_power_kw'] / (input_df['battery_capacity_kwh'] + 1e-5)
-input_df['cell_voltage_spread'] = input_df['cell_voltage_std'] / (input_df['cell_voltage_avg'] + 1e-5)
-input_df['stress_index'] = input_df['aggressive_acceleration_score'] * input_df['hard_braking_score']
+# Build DataFrame and run featurize()
+input_df = featurize(pd.DataFrame([current_data]))
 
 # Preprocess through the 156-feature ColumnTransformer
 input_transformed = ct.transform(input_df[meta['features']])
@@ -1761,8 +1833,8 @@ else:
 
 # Determine Hazard Status against active threshold tau
 is_flagged = prob_failure >= tau_slider
-cycle_fraction = min(max(pred_rul / 4500.0, 0.0), 1.0)
-est_years = pred_rul / 350.0
+cycle_fraction = min(max(pred_rul / 12500.0, 0.0), 1.0)
+est_years = pred_rul / 350.0  # labeled as fleet assumption
 
 if not is_flagged:
     status_key, status_label = "safe", "NOMINAL"
@@ -1795,14 +1867,14 @@ with m1:
     st.markdown(metric_card(
         "Predicted Remaining Life (RUL)",
         f'{pred_rul:,.0f}<span class="unit">cycles</span>',
-        f"≈ {est_years:.1f} yr horizon at 350 cycles/yr",
+        f"≈ {est_years:.1f} yr horizon (assumed 350 cycles/yr)",
         is_green=True
     ), unsafe_allow_html=True)
 
 with m2:
     st.markdown(metric_card(
         "Failure Probability P(Failure)",
-        f"{prob_failure:.1%}",
+        f"{prob_failure:.2%}",
         _html.escape(active_model_name)
     ), unsafe_allow_html=True)
 
@@ -1810,15 +1882,23 @@ with m3:
     st.markdown(metric_card(
         "Active Safety Cutoff (τ)",
         f"{tau_slider:.3f}",
-        "Default 0.50 · Safety 0.193"
+        "Default 0.500 · Safety 0.193"
     ), unsafe_allow_html=True)
 
 with m4:
     st.markdown(metric_card(
         "Operational Safety Status",
         badge_html,
-        f"P = {prob_failure:.1%} {'≥' if is_flagged else '&lt;'} τ = {tau_slider:.3f}"
+        f"P = {prob_failure:.2%} {'≥' if is_flagged else '&lt;'} τ = {tau_slider:.3f}"
     ), unsafe_allow_html=True)
+
+# Plain Language Summary for Executives
+plain_status = "FLAGGED FOR PREVENTATIVE WORKSHOP INSPECTION" if is_flagged else "CLEARED FOR ROUTINE FLEET OPERATION"
+st.info(
+    f"📋 **Executive Decision Summary:** This battery pack is currently **{plain_status}**. "
+    f"It has an estimated **{pred_rul:,.0f} cycles** remaining (~{est_years:.1f} years at assumed 350 cycles/year). "
+    f"Estimated failure risk is **{prob_failure:.2%}**, evaluated against cutoff **τ = {tau_slider:.3f}**."
+)
 
 
 # ==============================================================================
@@ -1828,31 +1908,30 @@ if status_key == "safe":
     alert_title = "BMS Telemetry Status: Normal Operation"
     alert_action = "No elevated-risk flag raised. Battery pack operating within nominal electro-thermal boundaries."
     alert_note = (
-        f"Failure probability (<b>{prob_failure:.1%}</b>) is well below the safety cutoff "
-        f"(τ = {tau_slider:.3f}). Regular telemetry logging is maintained."
+        f"Estimated failure probability (<b>{prob_failure:.2%}</b>) is below the active operating cutoff "
+        f"(τ = {tau_slider:.3f}). Regular fleet telemetry logging is maintained."
     )
 elif status_key == "warn":
-    alert_title = "Early Warning: Intercepted by Calibrated Safety Cutoff (τ = 0.193)"
-    alert_action = "Recommended action: Dispatch telemetry service advisory. Restrict DC fast-charging to 30 kW."
+    alert_title = f"Early Warning: Intercepted by Safety Cutoff (τ = {tau_slider:.3f})"
+    alert_action = "Recommended action: Schedule preventative dealer diagnostic; inspect thermal harness and cell balance."
     alert_note = (
-        f"<b>Viva Showcase Interception:</b> The uncalibrated ML threshold (0.50) would <b>completely miss</b> "
-        f"this vehicle because P(Failure) is only {prob_failure:.1%}. However, our cost-calibrated safety threshold "
-        f"(τ = {tau_slider:.3f}) successfully flags the vehicle for preventive maintenance, preventing costly road failure."
+        f"<b>Early Warning Interception:</b> Standard cutoff (0.50) would categorize this vehicle as normal (P = {prob_failure:.2%}). "
+        f"The safety-calibrated threshold flags this battery early, enabling depot inspection prior to on-road failure."
     )
 else:
-    alert_title = "Critical Hazard: Failure Probability Exceeds Both Safety and Default Cutoffs"
-    alert_action = "Emergency action: Trigger BMS power derating. Isolate pack and initiate cooling system override."
+    alert_title = f"Critical Alert: Failure Probability Exceeds Cutoff (P = {prob_failure:.2%})"
+    alert_action = "Recommended action: Urgent workshop service required; prioritize full high-voltage electrical check."
     alert_note = (
-        f"Failure probability (<b>{prob_failure:.1%}</b>) exceeds both the safety cutoff (τ = {tau_slider:.3f}) "
-        f"and the standard 0.50 threshold, indicating severe internal impedance, rapid thermal escalation, or cell divergence."
+        f"Failure probability (<b>{prob_failure:.2%}</b>) exceeds critical operational boundaries, "
+        f"indicating severe internal impedance, rapid thermal escalation, or cell divergence."
     )
 
 st.markdown(compact(f"""
 <div class="alert alert-{status_key}">
     <div class="alert-head">{badge_html}<span class="alert-title">{alert_title}</span></div>
     <div class="alert-grid">
-        <div><div class="alert-k">Failure Probability</div><div class="alert-v">{prob_failure:.1%}</div></div>
-        <div><div class="alert-k">Safety Cutoff</div><div class="alert-v"><span class="sym">τ</span> = {tau_slider:.3f}</div></div>
+        <div><div class="alert-k">Failure Probability</div><div class="alert-v">{prob_failure:.2%}</div></div>
+        <div><div class="alert-k">Operating Cutoff</div><div class="alert-v"><span class="sym">τ</span> = {tau_slider:.3f}</div></div>
         <div><div class="alert-k">Recommended Protocol</div><div class="alert-v act">{alert_action}</div></div>
     </div>
     <div class="alert-note">{alert_note}</div>
@@ -1863,10 +1942,11 @@ st.markdown(compact(f"""
 # ==============================================================================
 # Dual-Task Deep Dive & Master Leaderboards (Tabs)
 # ==============================================================================
-tab1, tab2, tab3 = st.tabs([
-    "01 · LIVE PROGNOSTICS DEEP DIVE",
-    "02 · FEATURE ATTRIBUTION & TELEMETRY AUDIT",
-    "03 · GROUP NECRONS MASTER LEADERBOARD"
+tab1, tab2, tab3, tab4 = st.tabs([
+    "01 · LIVE PROGNOSTICS & ALERT-BURDEN",
+    "02 · FEATURE ATTRIBUTION & AUDIT",
+    "03 · GROUP NECRONS MASTER LEADERBOARD",
+    "04 · DATA HEALTH & METHODOLOGY"
 ])
 
 with tab1:
@@ -1874,7 +1954,7 @@ with tab1:
 
     with col_t1:
         rul_bar = progress_bar(
-            cycle_fraction, "Estimated Lifespan Remaining", f"{cycle_fraction:.1%}"
+            cycle_fraction, "Estimated Lifespan Remaining (Scale: 12,500 Max Cycles)", f"{cycle_fraction:.1%}"
         )
         st.markdown(compact(f"""
         <div class="panel">
@@ -1882,17 +1962,26 @@ with tab1:
             <div class="panel-title">Battery Useful Life Prognostics</div>
             <div class="panel-sub"><b>Champion Model:</b> Tuned HistGradientBoosting &nbsp;·&nbsp; R² = 0.8972, RMSE = 528.64 cycles</div>
             {rul_bar}
-            <div class="kv"><span>Estimated Fleet Horizon <small>(350 charge cycles/year)</small></span><b>~{est_years:.1f} years</b></div>
+            <div class="kv"><span>Estimated Fleet Horizon <small>(assumed 350 cycles/year)</small></span><b>~{est_years:.1f} years</b></div>
             <div class="kv"><span>State of Health (SOH)</span><b>{v_health:.1f}%</b></div>
-            <div class="kv"><span>Internal Resistance (ESR)</span><b>{v_res:.3f} mΩ</b></div>
-            <div class="kv"><span>Resistance Aging Rate</span><b>{input_df['resistance_per_1000_cycles'].values[0]:.3f} mΩ / 1,000 cycles</b></div>
+            <div class="kv"><span>Internal Resistance (ESR)</span><b>{v_res:.3f} Ω</b></div>
+            <div class="kv"><span>Resistance Aging Rate</span><b>{input_df['resistance_per_1000_cycles'].values[0]:.4f} Ω / 1,000 cycles</b></div>
             <div class="kv"><span>Estimated Total Lifetime</span><b>{(v_cycles + pred_rul):,.0f} cycles</b></div>
+        </div>
+        """), unsafe_allow_html=True)
+
+        st.markdown(compact("""
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:0.8rem 1rem; margin-top:0.8rem; font-size:0.78rem; color:#475569;">
+            <b>Typical Model Prediction Error Band:</b> ±423 cycles (MAE) / ±529 cycles (RMSE).<br>
+            <i>Methodological Notice (Report Section 9.2, Table 12):</i> In the lowest-RUL quartile (batteries near end-of-life), 
+            the model exhibits an average overprediction bias of <b>-201.62 cycles</b>. 
+            Field operators should apply a conservative safety buffer when predicted RUL falls below 3,000 cycles.
         </div>
         """), unsafe_allow_html=True)
 
     with col_t2:
         fail_bar = progress_bar(
-            prob_failure, "Failure Risk Probability", f"{prob_failure:.1%}",
+            prob_failure, "Failure Risk Probability", f"{prob_failure:.2%}",
             marker=tau_slider, marker_label=f"Cutoff τ = {tau_slider:.3f}",
             is_risk=True
         )
@@ -1903,11 +1992,76 @@ with tab1:
             <div class="panel-sub"><b>Active Engine:</b> {_html.escape(active_model_name)}</div>
             {fail_bar}
             <div class="kv"><span>Decision Rule</span><b>Flag = 1 if P(Failure) ≥ {tau_slider:.3f}</b></div>
-            <div class="kv"><span>Asymmetric Cost Matrix Ratio (C<sub>FN</sub> / C<sub>FP</sub>)</span><b>13.45 : 1</b></div>
-            <div class="kv"><span>Safety Recall on Evaluation Set</span><b>90.25%</b></div>
-            <div class="kv wrap"><span>Operational Advantage:</span> <b>Threshold tuning reduced false alarms to 139 (saving 175 unnecessary depot teardowns compared to the 314 false positives of the uncalibrated model) while preserving 90.25% recall.</b></div>
+            <div class="kv"><span>Class Imbalance Ratio (Non-Failure : Failure)</span><b>13.45 : 1</b></div>
+            <div class="kv"><span>Safety Recall at τ = 0.193 on Evaluation Set</span><b>90.25%</b></div>
+            <div class="kv wrap"><span>Operational Advantage:</span> <b>Safety threshold (τ=0.193) intercepts 90.25% of true failures with 139 false alarms (175 fewer false alarms than the uncalibrated boosting baseline of 314 FP).</b></div>
         </div>
         """), unsafe_allow_html=True)
+
+    # Live Alert-Burden Calculator from test_scores.csv
+    st.markdown("---")
+    st.markdown(f"#### Live Test-Set Performance at Operating Cutoff (τ = {tau_slider:.3f})")
+    
+    active_prob_col = 'p_lr' if "Logistic" in engine_choice else 'p_xgb'
+    y_true_eval = test_scores_df['y_true'].values
+    p_eval = test_scores_df[active_prob_col].values
+
+    preds_at_tau = (p_eval >= tau_slider).astype(int)
+    tp = int(np.sum((preds_at_tau == 1) & (y_true_eval == 1)))
+    fp = int(np.sum((preds_at_tau == 1) & (y_true_eval == 0)))
+    fn = int(np.sum((preds_at_tau == 0) & (y_true_eval == 1)))
+    tn = int(np.sum((preds_at_tau == 0) & (y_true_eval == 0)))
+
+    live_recall = tp / (tp + fn + 1e-10)
+    live_precision = tp / (tp + fp + 1e-10)
+    live_f1 = 2 * (live_precision * live_recall) / (live_precision + live_recall + 1e-10)
+
+    ab1, ab2, ab3, ab4 = st.columns(4)
+    ab1.metric("Recall (Interception Rate)", f"{live_recall:.2%}", help="Fraction of all true failures flagged")
+    ab2.metric("Precision (True Alarms)", f"{live_precision:.2%}", help="Fraction of alarms that are true failures")
+    ab3.metric("Missed Failures (FN)", f"{fn}", delta=f"{fn - 27} vs Safety τ=0.193", delta_color="inverse")
+    ab4.metric("False Alarms (FP)", f"{fp}", delta=f"{fp - 139} vs Safety τ=0.193", delta_color="inverse")
+
+    cm_display = pd.DataFrame([
+        {"Actual State": "True Failure (277 in test set)", "Flagged for Inspection": f"✅ {tp} (True Positives)", "Cleared Normal": f"⛔ {fn} (Missed Failures)"},
+        {"Actual State": "Normal Battery (3,723 in test set)", "Flagged for Inspection": f"⚠️ {fp} (False Alarms)", "Cleared Normal": f"✅ {tn} (True Negatives)"}
+    ])
+    st.table(cm_display)
+
+    # Fleet Decision Simulator
+    with st.expander("💼 Fleet Manager Decision & Workshop Workload Simulator", expanded=False):
+        st.markdown("Simulate workshop inspection capacity and undetected battery failures across a customized fleet size based on test-set error rates:")
+        sim_col1, sim_col2 = st.columns(2)
+        fleet_size = sim_col1.number_input("Fleet Size (Total Electric Vehicles):", min_value=100, max_value=100000, value=5000, step=500)
+        depot_capacity = sim_col2.number_input("Depot Monthly Inspection Capacity (Inspections / Month):", min_value=10, max_value=2000, value=300, step=25)
+
+        failure_rate_expected = 277 / 4000.0  # 6.925% prevalence
+        expected_failures = fleet_size * failure_rate_expected
+        expected_normal = fleet_size * (1.0 - failure_rate_expected)
+
+        est_flags = (expected_failures * live_recall) + (expected_normal * (fp / 3723.0))
+        est_missed = expected_failures * (1.0 - live_recall)
+
+        s1, s2, s3 = st.columns(3)
+        s1.metric("Expected Monthly Inbound Alarms", f"{est_flags:,.0f} EVs", delta=f"{est_flags - depot_capacity:,.0f} vs Depot Capacity", delta_color="inverse")
+        s2.metric("Expected Intercepted Failures", f"{expected_failures * live_recall:,.0f} EVs")
+        s3.metric("Projected Undetected On-Road Failures", f"{est_missed:,.0f} EVs", delta_color="inverse")
+
+        if est_flags > depot_capacity:
+            st.warning(f"⚠️ Inspection capacity bottleneck: Current cutoff triggers {est_flags:,.0f} inspection notices, exceeding workshop monthly capacity of {depot_capacity}. Consider increasing τ slightly toward F1-optimal (0.278) to throttle false alarm burden.")
+        else:
+            st.success(f"✅ Workshop bandwidth adequate: {est_flags:,.0f} monthly inspections fits within depot capacity of {depot_capacity}.")
+
+    # Accuracy Paradox Expander
+    with st.expander("💡 The Accuracy Paradox in EV Safety: Why 93% Accuracy Fails", expanded=False):
+        st.markdown("""
+        In imbalanced failure classification (where only **6.925%** of batteries fail), raw **Accuracy** is dangerously misleading:
+        * A **Dummy Majority Classifier** that unconditionally predicts every battery is healthy achieves **93.08% Accuracy**.
+        * However, it misses **277 out of 277 catastrophic failures** (0% Recall, maximum false negative cost).
+        """)
+        p1, p2 = st.columns(2)
+        p1.error("❌ **Naive Majority Baseline:** Accuracy = 93.08% | Failures Intercepted = 0 / 277 (100% Missed)")
+        p2.success("✅ **Safety Model (τ = 0.193):** Accuracy = 95.85% | Failures Intercepted = 250 / 277 (90.25% Recall)")
 
 with tab2:
     st.markdown(compact("""
@@ -1925,14 +2079,33 @@ with tab2:
         {'Feature': 'temperature_spread', 'Formula': 'cell_temp_max - cell_temp_avg', 'Observed Value': f"{input_df['temperature_spread'].values[0]:.3f} °C", 'Significance': 'Detects thermal gradients and localized module hot-spots'},
         {'Feature': 'health_loss_interaction', 'Formula': '(health % * capacity_loss %) / 100', 'Observed Value': f"{input_df['health_loss_interaction'].values[0]:.3f}", 'Significance': 'Captures non-linear compounding capacity fade'},
         {'Feature': 'c_rate_proxy', 'Formula': 'charge_power_kw / capacity_kwh', 'Observed Value': f"{input_df['c_rate_proxy'].values[0]:.4f} C", 'Significance': 'Normalizes charging stress across battery pack sizes'},
-        {'Feature': 'resistance_per_1000_cycles', 'Formula': '(resistance / (cycles + 1)) * 1000', 'Observed Value': f"{input_df['resistance_per_1000_cycles'].values[0]:.4f} mΩ", 'Significance': 'Evaluates rate of ohmic degradation per cycle'},
+        {'Feature': 'resistance_per_1000_cycles', 'Formula': '(resistance / (cycles + 1)) * 1000', 'Observed Value': f"{input_df['resistance_per_1000_cycles'].values[0]:.4f} Ω", 'Significance': 'Evaluates rate of ohmic degradation per cycle'},
         {'Feature': 'cell_voltage_spread', 'Formula': 'cell_voltage_std / cell_voltage_avg', 'Observed Value': f"{input_df['cell_voltage_spread'].values[0]:.5f}", 'Significance': 'Monitors parallel cell string voltage balancing'},
         {'Feature': 'stress_index', 'Formula': 'accel_score * braking_score', 'Observed Value': f"{input_df['stress_index'].values[0]:.2f}", 'Significance': 'Measures compound mechanical dynamic driving fatigue'},
         {'Feature': 'efficiency_gap', 'Formula': '|charge_eff - discharge_eff|', 'Observed Value': f"{input_df['efficiency_gap'].values[0]:.3f} %", 'Significance': 'Quantifies parasitic thermodynamic hysteresis loss'}
     ])
     st.markdown(render_table(domain_summary, model_col="Feature", status_col=None), unsafe_allow_html=True)
 
-    st.markdown('<div class="table-title blue-accent">Primary Raw Telemetry Variables in Current Profile</div>', unsafe_allow_html=True)
+    # Feature Attribution (Why this Score)
+    st.markdown('<div class="table-title blue-accent">Linear Attribution Influencers for Current Battery (Task 2)</div>', unsafe_allow_html=True)
+    if "Logistic" in engine_choice:
+        coefs = model_lr.coef_[0]
+        raw_contrib = input_transformed[0] * coefs
+        top_pos_idx = np.argsort(raw_contrib)[-4:][::-1]
+        top_neg_idx = np.argsort(raw_contrib)[:4]
+        
+        attr_data = []
+        feat_names = ct.get_feature_names_out()
+        for idx in top_pos_idx:
+            attr_data.append({"Feature": feat_names[idx], "Impact Direction": "🔺 Elevates Failure Risk", "Contribution Weight": f"{raw_contrib[idx]:+.3f}"})
+        for idx in top_neg_idx:
+            attr_data.append({"Feature": feat_names[idx], "Impact Direction": "🟢 Promotes Health/Normalcy", "Contribution Weight": f"{raw_contrib[idx]:+.3f}"})
+        st.markdown(render_table(pd.DataFrame(attr_data), model_col="Feature", status_col=None), unsafe_allow_html=True)
+        st.caption("Linear coefficient attribution: Feature value × Logistic weight. *Note: Reflects statistical association in the model, not verified physical causality.*")
+    else:
+        st.info("Active model is XGBoost. Linear attribution unavailable; feature usage is dictated by gradient tree splits.")
+
+    st.markdown('<div class="table-title">Observed Telemetry Values in Current Profile</div>', unsafe_allow_html=True)
     raw_telemetry_display = input_df[[
         'battery_health_percent', 'capacity_loss_percent', 'cell_temperature_max',
         'cell_temperature_avg', 'internal_resistance', 'cycle_count',
@@ -1954,7 +2127,7 @@ with tab2:
 with tab3:
     st.markdown(compact("""
     <div class="section-title">Group Necrons — Master Evaluation Leaderboard</div>
-    <div class="section-sub">Consolidated benchmarks across all models evaluated during the dual-task project lifecycle.</div>
+    <div class="section-sub">Consolidated benchmarks across all models evaluated during the dual-task project lifecycle (Report Tables 8, 26, 28, 29).</div>
     """), unsafe_allow_html=True)
 
     st.markdown('<div class="table-title">Task 1: Remaining Useful Life (RUL) Cycles Regression</div>', unsafe_allow_html=True)
@@ -1962,7 +2135,7 @@ with tab3:
         {'Model': 'Dummy Regressor (Mean Floor)', 'Test R2': -0.0015, 'Test RMSE': 1649.79, 'Test MAE': 1349.30, 'Status': 'Baseline Floor'},
         {'Model': 'Ordinary Least Squares (OLS)', 'Test R2': 0.8963, 'Test RMSE': 530.95, 'Test MAE': 423.45, 'Status': 'Linear Benchmark'},
         {'Model': 'Ridge Regression (Tuned alpha=31.62)', 'Test R2': 0.8963, 'Test RMSE': 530.83, 'Test MAE': 423.56, 'Status': 'L2 Regularized'},
-        {'Model': 'Lasso Regression (Tuned alpha=1.00)', 'Test R2': 0.8966, 'Test RMSE': 530.16, 'Test MAE': 423.02, 'Status': 'L1 Sparse'},
+        {'Model': 'Lasso Regression (Tuned alpha=1.00)', 'Test R2': 0.8966, 'Test RMSE': 530.16, 'Test MAE': 423.02, 'Status': 'L1 Sparse (90 Zeroed)'},
         {'Model': 'Decision Tree (max_depth=10)', 'Test R2': 0.8444, 'Test RMSE': 650.27, 'Test MAE': 512.39, 'Status': 'Tree Baseline'},
         {'Model': 'Random Forest (100 Trees)', 'Test R2': 0.8939, 'Test RMSE': 537.00, 'Test MAE': 430.62, 'Status': 'Bagging Ensemble'},
         {'Model': 'HistGradientBoosting (Tuned CV)', 'Test R2': 0.8972, 'Test RMSE': 528.64, 'Test MAE': 423.11, 'Status': '★ Task 1 Champion'}
@@ -1976,10 +2149,10 @@ with tab3:
     st.markdown('<div class="table-title blue-accent">Task 2: Critical Battery Failure Classification (13.45:1 Imbalance)</div>', unsafe_allow_html=True)
     t2_table = pd.DataFrame([
         {'Model': 'Dummy Classifier (Majority)', 'Recall': '0.00%', 'Precision': '0.00%', 'PR-AUC': 0.0693, 'ROC-AUC': 0.5000, 'Status': 'Naive Floor'},
-        {'Model': 'Unweighted Decision Tree', 'Recall': '54.00%', 'Precision': '54.00%', 'PR-AUC': 0.3261, 'ROC-AUC': 0.7538, 'Status': 'Tree Baseline'},
+        {'Model': 'Unweighted Decision Tree', 'Recall': '54.15%', 'Precision': '54.35%', 'PR-AUC': 0.3261, 'ROC-AUC': 0.7538, 'Status': 'Tree Baseline'},
         {'Model': 'Balanced Random Forest', 'Recall': '51.26%', 'Precision': '62.56%', 'PR-AUC': 0.6015, 'ROC-AUC': 0.9583, 'Status': 'Cost-Sensitive Bagging'},
-        {'Model': 'Original Cost-Sensitive XGBoost', 'Recall': '91.34%', 'Precision': '44.62%', 'PR-AUC': 0.7420, 'ROC-AUC': 0.9756, 'Status': 'High-Recall Boosting'},
-        {'Model': 'Tuned XGBoost (RandomizedSearch)', 'Recall': '89.53%', 'Precision': '62.63%', 'PR-AUC': 0.7798, 'ROC-AUC': 0.9811, 'Status': '★ Champion Tree Model'},
+        {'Model': 'Cost-Sensitive XGBoost (scale_pos_weight=13.45)', 'Recall': '91.34%', 'Precision': '44.62%', 'PR-AUC': 0.7420, 'ROC-AUC': 0.9756, 'Status': 'High-Recall Boosting'},
+        {'Model': 'Tuned XGBoost (RandomizedSearch CV)', 'Recall': '91.70%', 'Precision': '57.08%', 'PR-AUC': 0.7804, 'ROC-AUC': 0.9812, 'Status': '★ Champion Tree Model'},
         {'Model': 'Safety-Calibrated Logistic (tau=0.193)', 'Recall': '90.25%', 'Precision': '64.27%', 'PR-AUC': 0.7896, 'ROC-AUC': 0.9830, 'Status': '★ Champion Linear Model'}
     ])
     st.markdown(render_table(
@@ -1987,11 +2160,122 @@ with tab3:
         num_cols=('Recall', 'Precision', 'PR-AUC', 'ROC-AUC'),
         decimals={'PR-AUC': 4, 'ROC-AUC': 4}
     ), unsafe_allow_html=True)
+    st.caption("Footnote: All Task 2 models evaluated on the 4,000-row stratified test set (277 failures). Safety-Calibrated Logistic uses τ = 0.193; all other models use default threshold (0.50). *Methodological Note: τ=0.193 was calibrated on the evaluation partition to demonstrate safety thresholding.*")
 
+with tab4:
+    st.markdown(compact("""
+    <div class="section-title">Data Quality &amp; Machine Learning Pipeline Architecture</div>
+    <div class="section-sub">Verified dataset structure and preprocessing pipeline integrity from Report Sections 3, 5, and 11:</div>
+    """), unsafe_allow_html=True)
+
+    dq1, dq2, dq3, dq4 = st.columns(4)
+    dq1.metric("Raw Dataset Size", "20,000 records", "70 telemetry attributes")
+    dq2.metric("Incomplete Records", "18,663 records (93.3%)", "Missingness in 67/70 fields")
+    dq3.metric("Exact Duplicates", "0 records (0.00%)", "Validated unique battery IDs")
+    dq4.metric("Excluded Unlabelled RUL", "898 records (4.49%)", "Excluded only from Task 1")
+
+    st.markdown(compact("""
+    <div style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:10px; padding:1.2rem; margin:1.2rem 0; font-size:0.84rem; line-height:1.6; color:#1E293B;">
+        <b style="color:#2563EB;">End-to-End Pipeline Stepper:</b><br>
+        1. <b>Data Ingestion:</b> 20,000 rows × 70 raw features (60 numerical, 10 categorical).<br>
+        2. <b>Domain Feature Engineering:</b> 7 non-linear physical interaction features computed before splitting.<br>
+        3. <b>Leakage-Safe Partitioning:</b> Task 1 uses 80/20 random split (19,102 rows). Task 2 uses 80/20 stratified split (4,000 test rows, 277 failures).<br>
+        4. <b>ColumnTransformer Pipeline:</b> Numerical fields pass through SimpleImputer(median) + StandardScaler. Categoricals pass through SimpleImputer(most_frequent) + OneHotEncoder.<br>
+        5. <b>Feature Dimension:</b> 73 model predictors expand to 156 transformed features.<br>
+        6. <b>Inference & Decision Calibration:</b> HistGradientBoosting predicts RUL cycles. Calibrated Logistic Regression evaluates failure probability at safety threshold τ = 0.193.
+    </div>
+    """), unsafe_allow_html=True)
+
+    st.markdown("#### System Boundaries & Academic Limitations (Report Section 15)")
+    st.warning("""
+    * **Decision-Support Scope:** This software prototype is designed for operational fleet analytics and warranty planning. It is not an automotive safety certification system.
+    * **RUL Extrapolation Boundary:** Model RUL predictions exhibit an average overprediction bias (-201 cycles) on batteries nearing end-of-life (Q1 quartile). Physical load tests should supplement predictions when RUL < 3,000 cycles.
+    * **Synthetic Manipulation Warning:** Manually dragging sliders to uncorrelated combinations (e.g. SOH 95% and Capacity Loss 40%) creates synthetic points outside the empirical training distribution.
+    """)
+
+
+# ==============================================================================
+# Expandable System Self-Test Panel & Battery Passport Export
+# ==============================================================================
+st.markdown("---")
+exp_col1, exp_col2 = st.columns([1, 1])
+
+with exp_col1:
+    with st.expander("🧪 System Self-Test Pipeline (Automated Test Suite)", expanded=False):
+        st.markdown("Automated validation running all preset scenarios through the feature engineering, imputation, scaling, and dual-model inference pipeline:")
+        test_results = []
+        for sc_name, sc_obj in scenarios.items():
+            try:
+                raw_input = pd.DataFrame([sc_obj['data']])
+                featurized = featurize(raw_input)
+                transformed = ct.transform(featurized[meta['features']])
+                r_pred = model_rul.predict(transformed)[0]
+                p_pred = model_lr.predict_proba(transformed)[0, 1]
+                valid_shape = (transformed.shape[1] == 156)
+                valid_p = (0.0 <= p_pred <= 1.0)
+                valid_r = (not np.isnan(r_pred))
+                test_results.append({
+                    "Scenario": sc_name.split(":")[0],
+                    "Transformed Features": transformed.shape[1],
+                    "RUL Prediction": f"{r_pred:,.1f} cycles",
+                    "Failure Risk": f"{p_pred:.4%}",
+                    "Integrity Status": "✅ PASS" if (valid_shape and valid_p and valid_r) else "❌ FAIL"
+                })
+            except Exception as ex:
+                test_results.append({
+                    "Scenario": sc_name.split(":")[0],
+                    "Transformed Features": "ERR",
+                    "RUL Prediction": "ERR",
+                    "Failure Risk": "ERR",
+                    "Integrity Status": f"❌ FAIL ({ex})"
+                })
+        st.dataframe(pd.DataFrame(test_results), use_container_width=True, hide_index=True)
+
+with exp_col2:
+    with st.expander("📄 Export Battery Diagnostic Passport", expanded=False):
+        passport_text = f"""# EV BATTERY DIAGNOSTIC HEALTH PASSPORT
+**Generated by:** Group Necrons Dual-Task BMS PHM System (SLIIT IT3051)
+**Vehicle Reference:** {active_scenario_name.split(':')[0]}
+**Operating Status:** {status_label} (Cutoff τ = {tau_slider:.3f})
+
+---
+### 1. Prognostic Indicators
+- **Predicted Remaining Useful Life (RUL):** {pred_rul:,.0f} cycles (Typical Error: ±423 cycles)
+- **Estimated Operating Horizon:** ~{est_years:.1f} years (at assumed 350 cycles/year)
+- **Estimated Failure Probability:** {prob_failure:.2%}
+- **Active Model Tier:** {active_model_name}
+
+### 2. Primary Telemetry Snapshot
+- **State of Health (SOH):** {v_health:.2f}%
+- **Capacity Loss:** {v_cap_loss:.2f}%
+- **Internal Resistance:** {v_res:.3f} Ω
+- **Completed Cycles:** {v_cycles:,} cycles
+- **Max Cell Hotspot Temperature:** {v_temp_max:.1f} °C
+- **Average Pack Temperature:** {v_temp_avg:.1f} °C
+- **Thermal Spread (Hotspot Gradient):** {(v_temp_max - v_temp_avg):.2f} °C
+- **Thermal Runaway Risk Index:** {v_runaway:.1f} / 100
+
+### 3. Recommended Operational Protocol
+{alert_action}
+
+---
+*Disclaimer: Decision-support prototype developed for academic evaluation (SLIIT IT3051). Not certified as an automotive safety system.*
+"""
+        st.download_button(
+            "📥 Download Diagnostic Passport (.md)",
+            data=passport_text,
+            file_name=f"Battery_Passport_{status_label}.md",
+            mime="text/markdown",
+            use_container_width=True
+        )
+
+
+# ==============================================================================
 # Footer
+# ==============================================================================
 st.markdown(
     '<div class="app-footer">'
-    '<div><b>⚡</b> SLIIT IT3051 Data Mining Project &nbsp;|&nbsp; Group: <b>Necrons</b></div>'
+    '<div><b>⚡</b> SLIIT IT3051 Data Mining Project &nbsp;|&nbsp; Group: <b>Necrons</b> &nbsp;|&nbsp; Decision-support prototype, not an automotive safety certification</div>'
     '<div>Dual-Task EV Battery PHM Deployment System &nbsp;·&nbsp; Streamlit Web Dashboard</div>'
     '</div>',
     unsafe_allow_html=True,
