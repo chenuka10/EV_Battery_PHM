@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EV Battery Prognostics & Health Management (PHM)</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">EV Battery Prognostics &amp; Health Management (PHM)</h1>
+          <p class="brand-subtitle">Dual-Task Edge Prognostics: Continuous RUL Cycles Regression (Task 1) &amp; Calibrated Failure Risk Early Warning (Task 2)</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge badge-blue">SLIIT IT3051 · 2026</span>
+        <span class="badge badge-green">Group Necrons</span>
+        <span class="badge badge-gray">Simulation Mode</span>
+        <button id="btn-export-passport" class="btn btn-outline btn-sm">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Export Health Passport
+        </button>
+      </div>
+    </header>
+
+    <!-- 3-Step Guide for Non-Technical Users -->
+    <section class="guide-bar">
+      <div class="guide-step">
+        <div class="step-num">1</div>
+        <div class="step-text"><strong>Step 1:</strong> Select a verified scenario below or adjust physical sliders in the studio.</div>
+      </div>
+      <div class="guide-step">
+        <div class="step-num">2</div>
+        <div class="step-text"><strong>Step 2:</strong> Set operating cutoff (&tau;) in the risk panel (Safety 0.193 vs Default 0.50).</div>
+      </div>
+      <div class="guide-step">
+        <div class="step-num">3</div>
+        <div class="step-text"><strong>Step 3:</strong> Review Remaining Useful Life (Task 1) and Calibrated Early Warning (Task 2).</div>
+      </div>
+    </section>
+
+    <!-- Scenario Showcase Cards -->
+    <section class="section-header">
+      <div>
+        <h2 class="section-title">Verified Vehicle Telemetry Scenarios</h2>
+        <p class="section-sub">Select a preset profile below to populate telemetry data, or customize parameters in the studio.</p>
+      </div>
+    </section>
+    
+    <div id="scenarios-container" class="scenarios-grid">
+      <!-- Dynamic Scenario Cards populated by app.js -->
+    </div>
+
+    <!-- Main Workspace (Dual-Task Output + Interactive Studio) -->
+    <div class="workspace-grid">
+      
+      <!-- Left Column: Dual-Task Prognostics Output -->
+      <div class="results-column">
+        
+        <!-- Task 1: RUL Card -->
+        <div class="card">
+          <div class="task-card-header">
+            <div class="task-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+              Task 1 · Continuous Remaining Life
+            </div>
+            <span class="badge badge-blue">R&sup2; = 0.8972 · RMSE 528.6</span>
+          </div>
+
+          <div class="rul-display">
+            <div class="rul-gauge-box">
+              <svg class="rul-gauge-svg" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="42" fill="none" stroke="#E2E8F0" stroke-width="8"></circle>
+                <circle id="rul-gauge-bar" cx="50" cy="50" r="42" fill="none" stroke="#2563EB" stroke-width="8" stroke-dasharray="264" stroke-dashoffset="60" stroke-linecap="round"></circle>
+              </svg>
+              <div class="rul-gauge-val">
+                <div id="rul-val" class="rul-gauge-num">7,825</div>
+                <div class="rul-gauge-unit">Cycles</div>
+              </div>
+            </div>
+            <div class="rul-details">
+              <div id="rul-headline" class="rul-headline">High Endurance Reserve</div>
+              <div id="rul-subtext" class="rul-subtext">Estimated pack longevity under active electro-thermal degradation conditions.</div>
+              <div class="rul-stats-bar">
+                <div>Est. Service: <strong id="rul-years">~22.3 yrs</strong></div>
+                <div>Model: <strong>Tuned HistGradientBoosting</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Task 2: Failure Early Warning Card -->
+        <div class="card">
+          <div class="task-card-header">
+            <div class="task-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              Task 2 · Critical Failure Early Warning
+            </div>
+            <div style="display:flex; gap:6px;">
+              <select id="engine-select" class="btn btn-outline btn-sm">
+                <option value="logistic">Logistic Regression (Safety Tuned)</option>
+                <option value="xgboost">Tuned XGBoost (PR-AUC Champion)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="risk-display">
+            <!-- Dynamic Alert Box -->
+            <div id="risk-alert-box" class="risk-alert-box nominal">
+              <div id="alert-icon" class="alert-icon">🟢</div>
+              <div class="alert-content">
+                <div id="alert-title" class="alert-title">BMS Telemetry Status: Normal Operation</div>
+                <div id="alert-action" class="alert-action">No elevated-risk flag raised. Pack operating within nominal electro-thermal limits.</div>
+                <div id="alert-note" class="alert-note">Estimated failure probability is below active cutoff. Regular logging maintained.</div>
+              </div>
+            </div>
+
+            <div class="risk-meta-grid">
+              <div class="risk-meta-cell">
+                <div class="risk-meta-label">Failure Probability</div>
+                <div id="risk-prob-val" class="risk-meta-val">1.24%</div>
+              </div>
+              <div class="risk-meta-cell">
+                <div class="risk-meta-label">Active Cutoff (&tau;)</div>
+                <div id="risk-tau-val" class="risk-meta-val">0.193</div>
+              </div>
+              <div class="risk-meta-cell">
+                <div class="risk-meta-label">Triage Status</div>
+                <div id="risk-flag-val" class="risk-meta-val" style="color:var(--green-dark);">NOMINAL</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cutoff Decision Matrix & Modes -->
+        <div class="cutoff-panel">
+          <div class="cutoff-header">
+            <div>
+              <strong style="font-size:12px; text-transform:uppercase; color:var(--text-muted);">Decision Threshold Tuning</strong>
+              <div style="font-size:11px; color:var(--text-sub);">Select standard policy or slide custom decision boundary (&tau;)</div>
+            </div>
+            <span id="recall-badge" class="badge badge-green">90.25% Recall</span>
+          </div>
+
+          <div class="mode-pills">
+            <button class="mode-pill active" data-tau="0.193">Safety Mode (&tau;=0.193)<br><small>Report Standard · 90.25% Recall</small></button>
+            <button class="mode-pill" data-tau="0.278">Balanced F1 (&tau;=0.278)<br><small>Optimal Harmonic F1 (77.3%)</small></button>
+            <button class="mode-pill" data-tau="0.500">Precision Mode (&tau;=0.500)<br><small>High Precision (80.7%)</small></button>
+          </div>
+
+          <div class="slider-container">
+            <div class="slider-label-row">
+              <span>Conservative (&tau; = 0.05)</span>
+              <span id="slider-tau-indicator"><strong>Active &tau; = 0.193</strong></span>
+              <span>Aggressive (&tau; = 0.95)</span>
+            </div>
+            <input type="range" id="tau-slider" class="slider-range-input" min="0.05" max="0.95" step="0.01" value="0.193">
+          </div>
+
+          <div class="confusion-metrics-grid">
+            <div>
+              <div id="cm-tp" class="cm-val">250</div>
+              <div class="cm-label">Intercepted (TP)</div>
+            </div>
+            <div>
+              <div id="cm-fn" class="cm-val">27</div>
+              <div class="cm-label">Missed (FN)</div>
+            </div>
+            <div>
+              <div id="cm-fp" class="cm-val">139</div>
+              <div class="cm-label">False Alarms (FP)</div>
+            </div>
+            <div>
+              <div id="cm-prec" class="cm-val">64.27%</div>
+              <div class="cm-label">Precision</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Warnings -->
+        <div id="warnings-box" class="validation-warnings">
+          <!-- Populated if collinearity or thermal outlier detected -->
+        </div>
+
+      </div>
+
+      <!-- Right Column: 12-Feature Interactive Studio -->
+      <div class="studio-column">
+        <div class="studio-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div>
+              <h3 style="font-size:14px; font-weight:700;">Vehicle Telemetry Studio</h3>
+              <p style="font-size:11px; color:var(--text-muted);">Adjust the 12 core degradation, thermal, and electrical telemetry signals.</p>
+            </div>
+            <button id="btn-reset-studio" class="btn btn-outline btn-sm">Reset to Scenario</button>
+          </div>
+
+          <!-- Group 1: Degradation & Wear -->
+          <div class="studio-group-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
+            </svg>
+            1. Electro-Chemical Degradation &amp; Wear
+          </div>
+          <div class="slider-control-group" id="group-degradation">
+            <!-- SOH, Capacity Loss, Internal Resistance, Cycles -->
+          </div>
+
+          <!-- Group 2: Thermal Dynamics -->
+          <div class="studio-group-title" style="margin-top:20px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path>
+            </svg>
+            2. Pack Thermal Dynamics &amp; Coolant Loop
+          </div>
+          <div class="slider-control-group" id="group-thermal">
+            <!-- Max Temp, Avg Temp, Thermal Runaway Index, Thermal Health -->
+          </div>
+
+          <!-- Group 3: Charging & Electrical Stress -->
+          <div class="studio-group-title" style="margin-top:20px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            3. Charging Power &amp; Mechanical Inrush Stress
+          </div>
+          <div class="slider-control-group" id="group-stress">
+            <!-- Charge Power, Capacity kWh, Aggressive Accel, Hard Braking -->
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Deep-Dive Analytics Navigation Tabs -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-business">Decision-Maker Economics &amp; Fleet Simulator</button>
+      <button class="tab-btn" data-tab="tab-attribution">"Why This Score?" Feature Attribution</button>
+      <button class="tab-btn" data-tab="tab-curves">Evaluation Curves (PR &amp; ROC)</button>
+      <button class="tab-btn" data-tab="tab-batch">Batch Fleet CSV Triage</button>
+      <button class="tab-btn" data-tab="tab-leaderboard">Master Model Leaderboards</button>
+      <button class="tab-btn" data-tab="tab-datahealth">Data Health &amp; Pipeline Architecture</button>
+    </nav>
+
+    <!-- Tab 1: Decision-Maker Economics & Simulator -->
+    <div id="tab-business" class="tab-pane active">
+      <div class="grid-2col">
+        <!-- Accuracy Paradox Card -->
+        <div class="card">
+          <h3 style="font-size:14px; font-weight:700; margin-bottom:10px;">The Accuracy Paradox in Imbalanced Fleet PHM</h3>
+          <div class="highlight-box">
+            <div class="highlight-title">Why 93.08% Accuracy Is Operationally Useless</div>
+            <div class="highlight-text">
+              Because failure is rare (13.45:1 imbalance, only 6.93% positive cases), a naive model that predicts every battery is healthy achieves <strong>93.08% accuracy</strong> while missing <strong>100% of critical road failures (277/277 missed)</strong>.
+            </div>
+          </div>
+          <p style="font-size:12px; color:var(--text-sub); line-height:1.5;">
+            Our safety-calibrated cutoff (&tau; = 0.193) sacrifices 3.5% apparent accuracy to achieve <strong>90.25% recall</strong>, successfully intercepting <strong>250 out of 277 dangerous failures</strong> before road breakdown occurs.
+          </p>
+        </div>
+
+        <!-- Fleet Simulator Card -->
+        <div class="card">
+          <h3 style="font-size:14px; font-weight:700; margin-bottom:10px;">Fleet Capacity &amp; Teardown Workload Simulator</h3>
+          <div style="margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+              <span>Fleet Size (Vehicles):</span>
+              <strong id="sim-fleet-size-val">10,000</strong>
+            </div>
+            <input type="range" id="sim-fleet-size" class="slider-range-input" min="1000" max="50000" step="1000" value="10000">
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:4px;">
+            <span>Technician Capacity (Hours/Month):</span>
+            <strong id="sim-hours-val">1,200 hrs</strong>
+          </div>
+          <input type="range" id="sim-hours" class="slider-range-input" min="200" max="5000" step="100" value="1200">
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;">
+            <div style="background:var(--surface-alt); padding:10px; border-radius:var(--radius-sm); text-align:center;">
+              <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Road Breakdowns Prevented</div>
+              <div id="sim-intercepted" style="font-size:18px; font-weight:800; color:var(--green-dark);">625</div>
+            </div>
+            <div style="background:var(--surface-alt); padding:10px; border-radius:var(--radius-sm); text-align:center;">
+              <div style="font-size:10px; color:var(--text-muted); text-transform:uppercase;">Workshop Inspection Load</div>
+              <div id="sim-workload" style="font-size:18px; font-weight:800; color:var(--blue);">973 inspections</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Feature Attribution -->
+    <div id="tab-attribution" class="tab-pane">
+      <div class="card">
+        <h3 style="font-size:14px; font-weight:700; margin-bottom:6px;">"Why This Score?" · Real-Time Telemetry Attribution</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:16px;">
+          Dynamic attribution breakdown showing which physical parameters drive the current battery risk score towards safety alarm vs nominal clearance.
+        </p>
+        <div id="attribution-bars">
+          <!-- Populated by app.js -->
+        </div>
+
+        <div style="margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
+          <h4 style="font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px;">The 7 Verified Domain-Engineered Features</h4>
+          <div id="engineered-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; font-size:11px;">
+            <!-- Populated by app.js -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Evaluation Curves (Pure SVG) -->
+    <div id="tab-curves" class="tab-pane">
+      <div class="grid-2col">
+        <div class="chart-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="font-size:13px; font-weight:700;">Precision-Recall Sweep Curve</h3>
+            <span class="badge badge-blue">PR-AUC = 0.7896</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Sweeping decision threshold &tau; from 0.05 to 0.95 across 4,000 held-out test records.</p>
+          <div class="chart-wrapper">
+            <svg id="svg-pr-curve" class="chart-svg" viewBox="0 0 400 240"></svg>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="font-size:13px; font-weight:700;">Receiver Operating Characteristic (ROC)</h3>
+            <span class="badge badge-green">ROC-AUC = 0.9830</span>
+          </div>
+          <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">True Positive Rate vs False Positive Rate across 4,000 held-out test vehicles.</p>
+          <div class="chart-wrapper">
+            <svg id="svg-roc-curve" class="chart-svg" viewBox="0 0 400 240"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Batch CSV Triage -->
+    <div id="tab-batch" class="tab-pane">
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3 style="font-size:14px; font-weight:700;">Fleet Telemetry Batch Triage Engine</h3>
+            <p style="font-size:12px; color:var(--text-muted);">Upload unlabelled or fleet telemetry CSV to run automated batch scoring and priority ranking.</p>
+          </div>
+          <a href="/api/sample-batch" class="btn btn-outline btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Demo Test Batch CSV
+          </a>
+        </div>
+
+        <div class="upload-dropzone" id="batch-dropzone">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-title">Click to upload fleet CSV or drag &amp; drop file here</div>
+          <div class="dropzone-sub">Supports arbitrary telemetry files with automatic imputation of missing attributes</div>
+          <input type="file" id="batch-file-input" accept=".csv" style="display:none;">
+        </div>
+
+        <div id="batch-results-container" style="display:none; margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <div id="batch-summary-text" style="font-size:13px; font-weight:600;"></div>
+            <button id="btn-download-ranked-csv" class="btn btn-primary btn-sm">Export Priority Ranked CSV</button>
+          </div>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Row</th>
+                  <th>Task 1 RUL Cycles</th>
+                  <th>Task 2 Failure Probability</th>
+                  <th>Triage Status</th>
+                  <th>Flagged for Depot</th>
+                  <th>Imputed Fields</th>
+                </tr>
+              </thead>
+              <tbody id="batch-table-body">
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Master Leaderboards -->
+    <div id="tab-leaderboard" class="tab-pane">
+      <div class="card" style="margin-bottom:20px;">
+        <h3 style="font-size:14px; font-weight:700; margin-bottom:6px;">Task 1: Continuous RUL Cycles Regression Leaderboard</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Held-out test set evaluation (4,000 records) reproducing Technical Report Tables 8 &amp; 26.</p>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Model Architecture</th>
+                <th>Paradigm</th>
+                <th>Test R&sup2;</th>
+                <th>Test RMSE (Cycles)</th>
+                <th>Test MAE (Cycles)</th>
+                <th>Evaluation Status</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-t1-body">
+              <!-- Populated by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="font-size:14px; font-weight:700; margin-bottom:6px;">Task 2: Critical Battery Failure Classification Leaderboard</h3>
+        <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Class-imbalanced evaluation (13.45:1 ratio, 277 failures in 4,000 test set) reproducing Technical Report Table 28.</p>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Model Architecture</th>
+                <th>Test Accuracy</th>
+                <th>Precision</th>
+                <th>Recall</th>
+                <th>F1 Score</th>
+                <th>PR-AUC</th>
+                <th>ROC-AUC</th>
+                <th>Missed (FN)</th>
+                <th>False Alarms (FP)</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-t2-body">
+              <!-- Populated by app.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 6: Data Health & Verification -->
+    <div id="tab-datahealth" class="tab-pane">
+      <div class="grid-2col">
+        <div class="card">
+          <h3 style="font-size:14px; font-weight:700; margin-bottom:8px;">Telemetry Dataset Provenance &amp; Splits</h3>
+          <ul style="font-size:12px; color:var(--text-sub); line-height:1.7; padding-left:18px;">
+            <li><strong>Total Dataset:</strong> 20,000 simulated EV battery telemetry records</li>
+            <li><strong>Task 1 Valid Records:</strong> 19,102 records (after dropping 898 NaN targets)</li>
+            <li><strong>Evaluation Split:</strong> 80/20 Stratified Train/Test split</li>
+            <li><strong>Held-out Evaluation Test Set:</strong> 4,000 records (277 ground-truth failure events)</li>
+            <li><strong>Natural Class Imbalance:</strong> 13.45:1 majority to minority ratio</li>
+            <li><strong>Preprocessor Pipeline:</strong> 156-feature ColumnTransformer (Median imputation, RobustScaler, OneHotEncoder)</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:14px; font-weight:700; margin-bottom:8px;">End-to-End Self-Test Diagnostic</h3>
+          <p style="font-size:12px; color:var(--text-muted); margin-bottom:12px;">Live backend artifact integrity and pipeline consistency check.</p>
+          <button id="btn-run-selftest" class="btn btn-primary btn-sm" style="margin-bottom:12px;">Run Diagnostic Self-Test</button>
+          <div id="selftest-output" style="background:var(--surface-alt); padding:10px; border-radius:var(--radius-sm); font-family:monospace; font-size:11px; white-space:pre-wrap; max-height:160px; overflow-y:auto;">
+Click button to trigger live /api/selftest diagnostic.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <div>
+        <strong>SLIIT IT3051 Fundamentals of Data Mining · Mini Project 2026</strong><br>
+        Group Necrons: EV Battery Prognostics &amp; Health Management (PHM)
+      </div>
+      <div class="footer-disclaimer">
+        <strong>Notice:</strong> Decision-support prototype for research and evaluation purposes only. Not a safety certification. Live telemetry simulation mode.
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
