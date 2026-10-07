@@ -33,44 +33,49 @@ The **EV Battery Prognostics & Health Management (PHM)** platform is a dual-task
 
 ```mermaid
 flowchart TD
-    subgraph Client["Presentation & Client Layer (100% Offline)"]
-        UI["Vanilla Web UI (HTML5 / Pure CSS / ES6 JS)"]
-        SVG["Hand-Drawn Vector Charts (PR & ROC Curves, RUL Gauge)"]
-        Pill["Decision Threshold Selector (Safety τ=0.193 / Balanced τ=0.278)"]
+    subgraph Client["Presentation and Client Layer (100% Offline)"]
+        UI["Battery Intelligence Web UI (Vanilla HTML5 / CSS / ES6)"]
+        SVG["Dynamic Vector Charts (Degradation Curve, PR and ROC, RUL Gauge)"]
+        Pill["Decision Threshold Selector (Safety tau=0.193 / Balanced tau=0.278)"]
     end
 
     subgraph Backend["FastAPI High-Performance Application Layer"]
         API["FastAPI REST Engine (:8000)"]
-        Val["Pydantic Telemetry Validation & Physical Anomaly Interceptor"]
+        Val["Pydantic Telemetry Validation and Physical Anomaly Interceptor"]
         Feat["7-Domain Feature Engineering Engine"]
         Impute["Missing Field Median/Modal Imputer"]
     end
 
-    subgraph Pipeline["ML Preprocessing & Inference Pipeline"]
+    subgraph Pipeline["ML Preprocessing and Inference Pipeline"]
         CT["ColumnTransformer Pipeline (156 Transformed Features)"]
         M1["Task 1: HistGradientBoosting Regressor (R² = 0.8972)"]
-        M2["Task 2: Safety-Calibrated Logistic Regression (τ = 0.193)"]
+        M2["Task 2: Safety-Calibrated Logistic Regression (tau = 0.193)"]
         M3["Task 2 Alternative: Tuned XGBoost Classifier (PR-AUC = 0.7804)"]
     end
 
-    subgraph Evaluation["Evaluation & Verification Data Assets"]
+    subgraph Evaluation["Evaluation and Verification Data Assets"]
         Scores["test_scores.csv (4,000 Test Records, 277 Failures)"]
         Ranges["feature_ranges.json (73 Column Distribution Bounds)"]
         Presets["preset_scenarios.json (4 Validated Telemetry Profiles)"]
     end
 
-    UI -->|Telemetry JSON / Batch CSV| API
-    Pill -->|Operating Cutoff τ| API
+    UI -->|"Telemetry JSON / Batch CSV"| API
+    Pill -->|"Operating Cutoff tau"| API
     API --> Val
-    Val -->|Validated Input| Feat
+    Val -->|"Validated Input"| Feat
     Feat --> Impute
     Impute --> CT
-    CT --> M1 & M2 & M3
-    M1 -->|Predicted RUL Cycles| API
-    M2 -->|Failure Probability P(Failure)| API
-    Scores & Ranges --> API
-    API -->|Live JSON Response| UI
-    API -->|Dynamic SVG Paths| SVG
+    CT --> M1
+    CT --> M2
+    CT --> M3
+    M1 -->|"Predicted RUL Cycles"| API
+    M2 -->|"Failure Probability"| API
+    M3 -->|"XGBoost Failure Risk"| API
+    Scores --> API
+    Ranges --> API
+    Presets --> API
+    API -->|"Live JSON Response"| UI
+    API -->|"Telemetry Vectors"| SVG
 ```
 
 ---
